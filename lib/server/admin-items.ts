@@ -96,6 +96,8 @@ export function saveItem(staff: Staff, id: number, b: Obj) {
     if (!get('SELECT 1 FROM items WHERE id = ?', id)) throw new ApiError(404, 'Item not found', 'not_found')
     if (!get('SELECT 1 FROM categories WHERE id = ?', f.category_id)) throw new ApiError(400, 'Choose a category', 'invalid')
     const cols = Object.keys(f)
+    // A person changing availability overrides the automatic sold-out flag.
+    run('UPDATE items SET auto_soldout = 0 WHERE id = ? AND available != ?', id, f.available)
     run(`UPDATE items SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`, ...Object.values(f), id)
     writeGroups(id, groups)
   })

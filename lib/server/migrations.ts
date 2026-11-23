@@ -504,6 +504,108 @@ CREATE TABLE reservation_history (
 `)
     },
   },
+  {
+    // Stage 7. Inventory. Quantities are INTEGER thousandths of the ingredient's unit (g, ml, pcs...),
+    // so repeated deductions never drift. Every change to stock is a stock_movements row.
+    version: 6,
+    up: (c) => {
+      c.exec(`
+CREATE TABLE suppliers (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  contact TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE ingredients (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  sku TEXT UNIQUE,
+  category TEXT NOT NULL DEFAULT 'ingredient' CHECK (category IN ('ingredient','packaging','drink','finished','cleaning','other')),
+  unit TEXT NOT NULL CHECK (unit IN ('g','kg','ml','l','pcs')),
+  stock INTEGER NOT NULL DEFAULT 0,
+  min_level INTEGER NOT NULL DEFAULT 0 CHECK (min_level >= 0),
+  unit_cost REAL NOT NULL DEFAULT 0 CHECK (unit_cost >= 0), -- base currency per 1 unit (e.g. IQD per g)
+  supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+  track_expiry INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  low_notified INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- What one unit of a menu item (or one pick of an option) uses. Option lines may be negative ("no cheese").
+CREATE TABLE recipe_lines (
+  id INTEGER PRIMARY KEY,
+  item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  option_id INTEGER REFERENCES options(id) ON DELETE CASCADE,
+  ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
+  qty INTEGER NOT NULL CHECK (qty != 0),
+  CHECK (option_id IS NOT NULL OR qty > 0)
+);
+CREATE UNIQUE INDEX idx_recipe_unique ON recipe_lines(item_id, COALESCE(option_id, 0), ingredient_id);
+CREATE INDEX idx_recipe_ingredient ON recipe_lines(ingredient_id);
+
+CREATE TABLE purchase_orders (
+  id INTEGER PRIMARY KEY,
+  number INTEGER NOT NULL UNIQUE,
+  supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','ordered','partial','received','cancelled')),
+  expected_on TEXT,
+  notes TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  ordered_at TEXT,
+  received_at TEXT
+);
+CREATE TABLE purchase_order_lines (
+  id INTEGER PRIMARY KEY,
+  po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
+  qty INTEGER NOT NULL CHECK (qty > 0),
+  unit_cost REAL NOT NULL DEFAULT 0 CHECK (unit_cost >= 0),
+  received_qty INTEGER NOT NULL DEFAULT 0 CHECK (received_qty >= 0)
+);
+
+-- Received stock with a use-by date. Consumption takes from the earliest-expiring batch first.
+CREATE TABLE stock_batches (
+  id INTEGER PRIMARY KEY,
+  ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+  qty_remaining INTEGER NOT NULL CHECK (qty_remaining >= 0),
+  expires_on TEXT NOT NULL,
+  received_at TEXT NOT NULL DEFAULT (datetime('now')),
+  po_id INTEGER REFERENCES purchase_orders(id) ON DELETE SET NULL,
+  warned_at TEXT
+);
+CREATE INDEX idx_batches_open ON stock_batches(ingredient_id, expires_on) WHERE qty_remaining > 0;
+
+CREATE TABLE stock_movements (
+  id INTEGER PRIMARY KEY,
+  ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
+  change INTEGER NOT NULL CHECK (change != 0),
+  balance_after INTEGER NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('sale','sale_reversal','purchase','adjustment','waste','count','opening')),
+  reason TEXT NOT NULL DEFAULT '',
+  unit_cost REAL NOT NULL DEFAULT 0,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  po_id INTEGER REFERENCES purchase_orders(id) ON DELETE SET NULL,
+  staff_id INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_movements_ingredient ON stock_movements(ingredient_id, id);
+CREATE INDEX idx_movements_order ON stock_movements(order_id);
+CREATE INDEX idx_movements_created ON stock_movements(created_at);
+
+ALTER TABLE orders ADD COLUMN stock_deducted_at TEXT;
+-- Which option was picked, so option recipes (extra patty, no cheese) can be applied.
+ALTER TABLE order_item_options ADD COLUMN option_id INTEGER REFERENCES options(id) ON DELETE SET NULL;
+-- Set when the system (not a person) marked an item sold out for lack of stock, so restocking brings it back.
+ALTER TABLE items ADD COLUMN auto_soldout INTEGER NOT NULL DEFAULT 0;
+`)
+    },
+  },
 ]
 
 /**

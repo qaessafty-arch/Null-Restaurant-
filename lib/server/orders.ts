@@ -2,11 +2,13 @@ import 'server-only'
 import { all, get, run, tx } from './db'
 import { ApiError } from './http'
 import { audit, type Staff, type TableSession } from './auth'
-import { canDoStep, type Audience, type Permission } from '../permissions'
+import { canDoStep, type Permission } from '../permissions'
 import { publish } from './events'
 import { getSettings } from './settings'
 import { orderTotals } from '../money'
 import { paidFor } from './payments'
+import { notify } from './notify'
+import { checkCart, consumeForOrder, reverseForOrder } from './inventory'
 import { randomCode, randomToken, safeEqual, sha256 } from './security'
 
 // ---------------------------------------------------------------- statuses
@@ -49,7 +51,7 @@ type OptRow = { id: number; group_id: number; name_en: string; price_delta: numb
 
 export type PricedLine = {
   itemId: number; name: string; unitPrice: number; optionsTotal: number; quantity: number; lineTotal: number
-  instructions: string; options: Array<{ group: string; name: string; delta: number; isDefault: boolean }>; prep: number | null
+  instructions: string; options: Array<{ id: number; group: string; name: string; delta: number; isDefault: boolean }>; prep: number | null
 }
 
 /** The only place prices are computed. The browser's numbers are never used. */
@@ -79,7 +81,7 @@ export function priceCart(lines: CartLine[]) {
     const chosen = new Set((l.optionIds ?? []).map(Number))
     if (chosen.size !== (l.optionIds ?? []).length) throw new ApiError(400, 'Duplicate options', 'invalid_option')
     const itemGroups = groups.filter((g) => g.item_id === item.id)
-    const selected: Array<{ group: string; name: string; delta: number; isDefault: boolean }> = []
+    const selected: Array<{ id: number; group: string; name: string; delta: number; isDefault: boolean }> = []
 
     for (const g of itemGroups) {
       const gOpts = opts.filter((o) => o.group_id === g.id)
@@ -95,7 +97,7 @@ export function priceCart(lines: CartLine[]) {
       if (picks.length < g.min_select) throw new ApiError(400, `Please choose: ${g.name_en}`, 'missing_option')
       for (const p of picks) {
         chosen.delete(p.id)
-        selected.push({ group: g.name_en, name: p.name_en, delta: p.price_delta, isDefault: !!p.is_default })
+        selected.push({ id: p.id, group: g.name_en, name: p.name_en, delta: p.price_delta, isDefault: !!p.is_default })
       }
     }
     if (chosen.size) throw new ApiError(400, 'Invalid option for this item', 'invalid_option') // option from another item
@@ -122,10 +124,7 @@ export function priceCart(lines: CartLine[]) {
 
 // ---------------------------------------------------------------- notifications
 
-export function notify(audience: Audience, kind: string, title: string, body = '', orderId: number | null = null) {
-  run('INSERT INTO notifications (audience, kind, title, body, order_id) VALUES (?, ?, ?, ?, ?)', audience, kind, title, body, orderId)
-  publish(audience === 'kitchen' ? 'kitchen' : 'staff', 'notification', { audience, kind, title })
-}
+export { notify }
 
 const orderNo = (n: number) => `ORD-${n}`
 
@@ -138,8 +137,8 @@ export function insertLines(orderId: number, lines: PricedLine[]) {
       orderId, l.itemId, l.name, l.unitPrice, l.optionsTotal, l.quantity, l.lineTotal, l.instructions, l.itemId,
     )
     for (const o of l.options)
-      run('INSERT INTO order_item_options (order_item_id, group_name, option_name, price_delta, is_default) VALUES (?,?,?,?,?)',
-        Number(li.lastInsertRowid), o.group, o.name, o.delta, o.isDefault ? 1 : 0)
+      run('INSERT INTO order_item_options (order_item_id, group_name, option_name, price_delta, is_default, option_id) VALUES (?,?,?,?,?,?)',
+        Number(li.lastInsertRowid), o.group, o.name, o.delta, o.isDefault ? 1 : 0, o.id)
   }
 }
 
@@ -166,6 +165,7 @@ export function createOrder(session: TableSession, input: { lines: CartLine[]; n
     if (open >= 5) throw new ApiError(429, 'You already have several open orders. Please ask your waiter.', 'too_many_orders')
 
     const priced = priceCart(input.lines)
+    checkCart(priced.lines) // tell the guest now rather than when the waiter sends it to the kitchen
     const next = nextOrderNumber()
     const needsVerification = s.requireVerification || !session.trusted
     const status: OrderStatus = needsVerification ? 'awaiting_verification' : 'confirmed'
@@ -193,6 +193,7 @@ export function createOrder(session: TableSession, input: { lines: CartLine[]; n
     )
     const orderId = Number(r.lastInsertRowid)
     insertLines(orderId, priced.lines)
+    if (!needsVerification) consumeForOrder(orderId, null)
     run('INSERT INTO order_status_history (order_id, from_status, to_status, actor, note) VALUES (?,?,?,?,?)',
       orderId, null, status, `customer@table ${session.table_number}`, needsVerification ? '' : 'Verification not required')
     run('UPDATE tables SET occupied = 1 WHERE id = ?', session.table_id)
@@ -370,6 +371,9 @@ export function transition(
       run(`UPDATE order_items SET kitchen_status = 'preparing', started_at = datetime('now') WHERE order_id = ?`, o.id)
     if (to === 'ready')
       run(`UPDATE order_items SET kitchen_status = 'ready', started_at = COALESCE(started_at, datetime('now')), ready_at = COALESCE(ready_at, datetime('now')) WHERE order_id = ? AND kitchen_status != 'ready'`, o.id)
+    // Stock leaves the shelf when the order goes to the kitchen; cancelling before cooking puts it back.
+    if (['confirmed', 'preparing', 'ready', 'served'].includes(to)) consumeForOrder(o.id, actor.staff?.id ?? null)
+    if ((to === 'cancelled' || to === 'rejected') && o.status === 'confirmed') reverseForOrder(o.id, actor.staff?.id ?? null)
     if (FINAL.includes(to) && o.table_id) closeTableIfIdle(o.table_id, o.id)
 
     const label = orderNo(o.number)

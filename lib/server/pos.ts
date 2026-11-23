@@ -5,6 +5,7 @@ import { audit, type Staff } from './auth'
 import { publish } from './events'
 import { getSettings } from './settings'
 import { randomToken, sha256 } from './security'
+import { consumeForOrder } from './inventory'
 import { insertLines, nextOrderNumber, notify, priceCart, type CartLine } from './orders'
 
 /**
@@ -64,6 +65,7 @@ export function createStaffOrder(staff: Staff, input: StaffOrderInput) {
       priced.subtotal, priced.tax, priced.service, priced.total, clean(input.note, 300), priced.estMinutes, priced.taxRate, priced.serviceRate)
     const orderId = Number(r.lastInsertRowid)
     insertLines(orderId, priced.lines)
+    consumeForOrder(orderId, staff.id)
     run('INSERT INTO order_status_history (order_id, from_status, to_status, staff_id, actor, note) VALUES (?,?,?,?,?,?)',
       orderId, null, 'confirmed', staff.id, `${staff.name} (${staff.role})`, `POS ${type.replace('_', '-')}`)
     if (table) run('UPDATE tables SET occupied = 1 WHERE id = ?', table.id)

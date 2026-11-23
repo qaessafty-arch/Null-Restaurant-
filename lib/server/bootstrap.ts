@@ -40,6 +40,11 @@ export interface Settings {
   reservationMaxDays: number
   /** When a table is free, web bookings are confirmed at once; otherwise they wait for staff. */
   reservationAutoConfirm: boolean
+  /** Off: an order that would take an ingredient below zero cannot be sent to the kitchen. */
+  allowNegativeStock: boolean
+  /** Mark dishes sold out when an ingredient runs out, and back when it is restocked. */
+  autoSoldOut: boolean
+  expiryWarningDays: number
 }
 
 export type PaymentMethod = { id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other'; enabled: boolean }
@@ -98,6 +103,9 @@ export const DEFAULT_SETTINGS: Settings = {
   reservationLeadMinutes: 60,
   reservationMaxDays: 60,
   reservationAutoConfirm: true,
+  allowNegativeStock: false,
+  autoSoldOut: true,
+  expiryWarningDays: 3,
 }
 
 type SeedItem = { name: string; desc: string; price: number; image: string; badge: string; spicy: boolean }

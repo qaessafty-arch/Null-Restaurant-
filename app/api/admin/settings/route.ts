@@ -83,6 +83,9 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
   reservationLeadMinutes: (v) => num(v, 'minimum notice', 0, 7 * 24 * 60),
   reservationMaxDays: (v) => num(v, 'how far ahead', 1, 365),
   reservationAutoConfirm: (v) => bool(v, 'auto-confirm'),
+  allowNegativeStock: (v) => bool(v, 'negative stock'),
+  autoSoldOut: (v) => bool(v, 'automatic sold out'),
+  expiryWarningDays: (v) => num(v, 'expiry warning', 0, 60),
 }
 
 export const PUT = route(async (req) => {
