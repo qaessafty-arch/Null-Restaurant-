@@ -19,5 +19,5 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
     : undefined
   if (!t) return NextResponse.redirect(new URL('/?table=invalid', origin))
   await openTableSession(t.id, 'qr', getSettings().tableSessionHours)
-  return NextResponse.redirect(new URL('/#full-menu', origin))
+  return NextResponse.redirect(new URL('/menu', origin))
 }

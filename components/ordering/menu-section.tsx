@@ -66,7 +66,8 @@ export function FeaturedSection({ eyebrow, title, link }: { eyebrow: string; tit
 
 type Filter = 'all' | 'popular' | 'offers'
 
-export function FullMenu({ eyebrow, title }: { eyebrow: string; title: React.ReactNode }) {
+/** The orderable menu. 'site' sits inside the website; 'app' is the table ordering app (its own header and welcome). */
+export function FullMenu({ eyebrow, title, variant = 'site' }: { eyebrow: string; title: React.ReactNode; variant?: 'site' | 'app' }) {
   const { categories, settings, lang, loading, loadError, reload } = useOrdering()
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
@@ -74,6 +75,7 @@ export function FullMenu({ eyebrow, title }: { eyebrow: string; title: React.Rea
   const navRef = useRef<HTMLDivElement>(null)
 
   const all = useMemo(() => categories.flatMap((c) => c.items), [categories])
+  const featured = useMemo(() => all.filter((i) => i.featured && i.available).slice(0, 8), [all])
   const hasPopular = all.some((i) => i.popular)
   const hasOffers = all.some((i) => i.offerPrice !== null)
   const query = q.trim().toLowerCase()
@@ -104,19 +106,21 @@ export function FullMenu({ eyebrow, title }: { eyebrow: string; title: React.Rea
   const open = settings?.isOpen
 
   return (
-    <section id="full-menu" className="menu-section full-menu">
-      <div className="container section ox-menu">
-        <div className="section-head">
-          <div><p className="eyebrow dark">{eyebrow}</p><h2>{title}</h2></div>
-          <div className="ox-status">
-            {settings && <span className={`ox-open ${open ? 'on' : ''}`}><i />{open ? tr(lang, 'openNow') : tr(lang, 'closedNow')}</span>}
-            <p>{tr(lang, 'orderFromTable')}</p>
+    <section id="full-menu" className={`menu-section full-menu ${variant === 'app' ? 'ox-app' : ''}`}>
+      <div className={variant === 'app' ? 'ox-menu' : 'container section ox-menu'}>
+        {variant === 'site' && (
+          <div className="section-head">
+            <div><p className="eyebrow dark">{eyebrow}</p><h2>{title}</h2></div>
+            <div className="ox-status">
+              {settings && <span className={`ox-open ${open ? 'on' : ''}`}><i />{open ? tr(lang, 'openNow') : tr(lang, 'closedNow')}</span>}
+              <p>{tr(lang, 'orderFromTable')}</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {settings?.notice && <p className="ox-notice" role="status">{settings.notice}</p>}
         {settings && !settings.orderingEnabled && !STATIC_SITE && <p className="ox-notice" role="status">{tr(lang, 'orderingOff')}</p>}
-        <TableBanner />
+        {variant === 'site' && <TableBanner />}
 
         <div className="ox-search">
           <Search size={17} />
@@ -140,6 +144,13 @@ export function FullMenu({ eyebrow, title }: { eyebrow: string; title: React.Rea
             )
           })}
         </div>
+
+        {variant === 'app' && !results && featured.length > 0 && (
+          <div className="ox-featured">
+            <h3>{tr(lang, 'featured')}</h3>
+            <div className="ox-rail">{featured.map((i) => <ItemCard key={i.id} item={i} />)}</div>
+          </div>
+        )}
 
         {loadError && !categories.length ? (
           <p className="ox-empty">{tr(lang, 'error')} <button type="button" className="ox-link" onClick={reload}>{tr(lang, 'retry')}</button></p>
