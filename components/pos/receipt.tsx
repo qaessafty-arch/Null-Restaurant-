@@ -52,6 +52,7 @@ export function ReceiptDialog({ orderIds, onClose }: { orderIds: string[]; onClo
               <hr />
               <div className="rc-line"><span>Subtotal</span><span>{m(r.subtotal)}</span></div>
               {r.discount > 0 && <div className="rc-line"><span>Discount</span><span>−{m(r.discount)}</span></div>}
+              {r.loyaltyDiscount > 0 && <div className="rc-line"><span>Loyalty points ({r.orders.reduce((a, o) => a + o.loyaltyPoints, 0)})</span><span>−{m(r.loyaltyDiscount)}</span></div>}
               {r.tax > 0 && <div className="rc-line"><span>Tax</span><span>{m(r.tax)}</span></div>}
               {r.serviceCharge > 0 && <div className="rc-line"><span>Service</span><span>{m(r.serviceCharge)}</span></div>}
               <div className="rc-line rc-total"><span>Total</span><span>{m(r.total)}</span></div>
@@ -66,6 +67,9 @@ export function ReceiptDialog({ orderIds, onClose }: { orderIds: string[]; onClo
                 <div className="rc-line"><span>Change given</span><span>{m(r.payments.reduce((a, p) => a + p.change, 0))}</span></div>
               )}
               <div className="rc-line rc-total"><span>{r.due > 0 ? 'Balance due' : 'Paid in full'}</span><span>{m(r.due)}</span></div>
+              {r.orders.some((o) => o.customer) && (
+                <p className="rc-center">{r.orders.find((o) => o.customer)!.customer!.name}: {r.orders.reduce((a, o) => a + o.pointsEarned, 0)} points earned · balance {r.orders.find((o) => o.customer)!.customer!.points}</p>
+              )}
               {r.restaurant.footer && <p className="rc-center">{r.restaurant.footer}</p>}
             </article>
           )}

@@ -146,3 +146,13 @@
   .pos-mobile-bar b { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 }
 @media (min-width: 761px) { .pos-mobile-bar { display: none; } }
+
+/* loyalty customer on a bill */
+.pos-cust { margin-top: var(--s-2); display: grid; gap: var(--s-2); }
+.pos-cust-chip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s-3); padding: var(--s-2) var(--s-3); border-radius: var(--r-md); background: var(--accent-soft); font-size: 13px; }
+.pos-cust-chip small { display: inline-flex; align-items: center; gap: 4px; color: var(--warning); font-weight: 600; }
+.pos-cust-chip .ui-btn { margin-inline-start: auto; }
+.pos-cust-form { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.pos-cust-form .ui-input { width: auto; flex: 1; min-width: 120px; min-height: 36px; }
+.pos-cust-lookup { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 8px 10px; border-radius: var(--r-md); background: var(--accent-soft); font-size: 13px; }
+.pos-cust-lookup small { color: var(--warning); font-weight: 600; }

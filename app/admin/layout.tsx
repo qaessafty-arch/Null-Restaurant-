@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { BarChart3, ClipboardList, Grid2x2, History, Settings, UtensilsCrossed, Users, ChefHat, ConciergeBell, LayoutDashboard, CalendarDays, ShoppingBag, Boxes, Wallet } from 'lucide-react'
+import { BarChart3, ClipboardList, Grid2x2, History, Settings, UtensilsCrossed, Users, ChefHat, ConciergeBell, LayoutDashboard, CalendarDays, ShoppingBag, Boxes, Wallet, Contact } from 'lucide-react'
 import { StaffShell, useMe } from '@/components/staff/shell'
 import { can, homeFor, type Permission } from '@/lib/permissions'
 
@@ -13,6 +13,7 @@ const NAV: Array<{ href: string; label: string; icon: typeof BarChart3; perm: Pe
   { href: '/admin/floor', label: 'Floor', icon: LayoutDashboard, perm: 'tables.view' },
   { href: '/admin/reservations', label: 'Reservations', icon: CalendarDays, perm: 'reservations.manage' },
   { href: '/admin/orders', label: 'Orders', icon: ClipboardList, perm: 'orders.view' },
+  { href: '/admin/customers', label: 'Customers', icon: Contact, perm: 'customers.view' },
   { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, perm: 'menu.manage' },
   { href: '/admin/inventory', label: 'Inventory', icon: Boxes, perm: 'inventory.manage' },
   { href: '/admin/tables', label: 'Tables & QR', icon: Grid2x2, perm: 'tables.manage' },
@@ -43,7 +44,7 @@ function Nav() {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <StaffShell perm={['reports.view', 'menu.manage', 'tables.manage', 'tables.view', 'staff.manage', 'settings.manage', 'inventory.manage', 'reservations.manage']} title="Restaurant admin" wide>
+    <StaffShell perm={['reports.view', 'menu.manage', 'tables.manage', 'tables.view', 'staff.manage', 'settings.manage', 'inventory.manage', 'reservations.manage', 'customers.view']} title="Restaurant admin" wide>
       <div className="ad-layout">
         <Nav />
         <main className="ad-main">{children}</main>

@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { BellRing, Receipt as ReceiptIcon, Percent, ChevronLeft, Check } from 'lucide-react'
+import { BellRing, Receipt as ReceiptIcon, Percent, ChevronLeft, Check, UserPlus, Gift, ShieldAlert } from 'lucide-react'
 import { api, ApiErr, ago, agoText } from '@/components/staff/api'
 import { useLive, useMe } from '@/components/staff/shell'
 import { can } from '@/lib/permissions'
 import { formatMoney } from '@/lib/money'
 import { PaymentPanel } from './payment-panel'
 import { ReceiptDialog } from './receipt'
-import type { Bill, OpenBill, Payment, PosConfig } from './types'
+import type { Bill, BillOrder, OpenBill, Payment, PosConfig } from './types'
 
 export type BillRef = { kind: 'table'; tableId: number } | { kind: 'order'; orderId: string }
 
@@ -97,11 +97,14 @@ function BillDetail({ config, bref, onBack }: { config: PosConfig; bref: BillRef
                   <div key={k} className="pos-bill-line"><span>{i.quantity} × {i.name}{i.options && <small>{i.options}</small>}</span><span>{formatMoney(i.lineTotal, base)}</span></div>
                 ))}
                 {o.discount > 0 && <div className="pos-bill-line discount"><span>Discount · {o.discountReason}</span><span>−{formatMoney(o.discount, base)}</span></div>}
+                {o.loyaltyDiscount > 0 && <div className="pos-bill-line discount"><span>{o.loyaltyPoints} loyalty points</span><span>−{formatMoney(o.loyaltyDiscount, base)}</span></div>}
+                <CustomerRow o={o} config={config} onChanged={load} />
               </div>
             ))}
             <dl className="pos-totals">
               <div><dt>Subtotal</dt><dd>{formatMoney(bill.subtotal, base)}</dd></div>
               {bill.discount > 0 && <div><dt>Discounts</dt><dd>−{formatMoney(bill.discount, base)}</dd></div>}
+              {bill.loyaltyDiscount > 0 && <div><dt>Loyalty points</dt><dd>−{formatMoney(bill.loyaltyDiscount, base)}</dd></div>}
               {bill.tax > 0 && <div><dt>Tax</dt><dd>{formatMoney(bill.tax, base)}</dd></div>}
               {bill.serviceCharge > 0 && <div><dt>Service</dt><dd>{formatMoney(bill.serviceCharge, base)}</dd></div>}
               <div><dt>Total</dt><dd>{formatMoney(bill.total, base)}</dd></div>
@@ -157,6 +160,54 @@ function DiscountDialog({ orderId, config, onClose, onDone }: { orderId: string;
           <button type="button" className="ui-btn primary" style={{ marginInlineStart: 'auto' }} disabled={busy || value === ''} onClick={save}>Apply</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Who the order belongs to (for points), with points to use. Points are a discount, never cash. */
+function CustomerRow({ o, config, onChanged }: { o: BillOrder; config: PosConfig; onChanged: () => Promise<void> }) {
+  const { me } = useMe()
+  const [mode, setMode] = useState<'attach' | 'redeem' | null>(null)
+  const [phone, setPhone] = useState('')
+  const [name, setName] = useState('')
+  const [points, setPoints] = useState('')
+  const [err, setErr] = useState('')
+  const base = config.baseCurrency
+  const L = config.loyalty
+  const cap = Math.floor(((o.subtotal - o.discount) * L.maxRedeemPercent) / 100)
+  const maxPoints = o.customer ? Math.min(o.customer.points + o.loyaltyPoints, Math.floor(cap / (L.pointValue || 1))) : 0
+  const act = async (fn: () => Promise<unknown>) => { setErr(''); try { await fn(); setMode(null); await onChanged() } catch (e) { setErr(e instanceof ApiErr ? e.message : 'Failed') } }
+  if (!L.enabled && !o.customer) return null
+  return (
+    <div className="pos-cust">
+      {o.customer ? (
+        <div className="pos-cust-chip">
+          <span><b>{o.customer.name}</b> · {o.customer.tier} · {o.customer.points.toLocaleString('en-US')} pts{o.pointsEarned ? ` · earned ${o.pointsEarned} here` : ''}</span>
+          {o.customer.preferences && <small><ShieldAlert size={12} /> {o.customer.preferences}</small>}
+          {L.enabled && can(me.role, 'payments.take') && o.paid === 0 && (o.customer.points >= L.minRedeem || o.loyaltyPoints > 0) && (
+            <button type="button" className="ui-btn sm ghost" onClick={() => { setPoints(String(o.loyaltyPoints || Math.min(maxPoints, o.customer!.points))); setMode('redeem') }}><Gift size={14} /> {o.loyaltyPoints ? 'Change points' : 'Use points'}</button>
+          )}
+        </div>
+      ) : (
+        <button type="button" className="ui-btn sm ghost" onClick={() => setMode('attach')}><UserPlus size={14} /> Add loyalty customer</button>
+      )}
+      {mode === 'attach' && (
+        <form className="pos-cust-form" onSubmit={(e) => { e.preventDefault(); void act(() => api('POST', `/api/staff/orders/${o.id}/customer`, { phone, name })) }}>
+          <input className="ui-input" inputMode="tel" placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} autoFocus aria-label="Customer phone" />
+          <input className="ui-input" placeholder="Name (new customers)" value={name} onChange={(e) => setName(e.target.value)} aria-label="Customer name" />
+          <button type="submit" className="ui-btn sm primary" disabled={phone.replace(/\D/g, '').length < 7}>Add</button>
+          <button type="button" className="ui-btn sm ghost" onClick={() => setMode(null)}>Cancel</button>
+        </form>
+      )}
+      {mode === 'redeem' && o.customer && (
+        <form className="pos-cust-form" onSubmit={(e) => { e.preventDefault(); void act(() => api('POST', `/api/staff/orders/${o.id}/redeem`, { points: Number(points) || 0 })) }}>
+          <input className="ui-input" inputMode="numeric" value={points} onChange={(e) => setPoints(e.target.value.replace(/\D/g, ''))} autoFocus aria-label="Points to use" />
+          <span className="ui-hint">= {formatMoney(Math.round((Number(points) || 0) * L.pointValue), base)} · up to {maxPoints} pts on this order</span>
+          <button type="submit" className="ui-btn sm primary">{Number(points) ? 'Use' : 'Remove points'}</button>
+          <button type="button" className="ui-btn sm ghost" onClick={() => setMode(null)}>Cancel</button>
+        </form>
+      )}
+      {err && <p className="ui-alert danger">{err}</p>}
     </div>
   )
 }

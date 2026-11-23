@@ -23,7 +23,7 @@ type OrderMoney = {
   id: number; public_id: string; number: number; type: string; table_id: number | null; table_number: string; status: string
   subtotal: number; discount: number; discount_reason: string; tax: number; service_charge: number; total: number
   payment_status: string; tax_rate: number; service_rate: number; customer_name: string; created_at: string
-  loyalty_discount: number; loyalty_points_used: number; customer_id: number | null
+  loyalty_discount: number; loyalty_points_used: number; loyalty_points_earned: number; customer_id: number | null
 }
 
 /** Net amount paid per order (payments minus refunds, completed rows only). */
@@ -54,11 +54,18 @@ export function refreshPaymentStatus(orderId: number) {
   syncLoyalty(orderId) // points follow payment: earned when fully paid, taken back if refunded
 }
 
+function customerOf(id: number | null) {
+  if (!id) return null
+  const c = get<{ id: number; name: string; tier: string; loyalty_points: number; preferences: string; forgotten_at: string | null }>(
+    'SELECT id, name, tier, loyalty_points, preferences, forgotten_at FROM customers WHERE id = ?', id)
+  return c && !c.forgotten_at ? { id: c.id, name: c.name, tier: c.tier, points: c.loyalty_points, preferences: c.preferences } : null
+}
+
 function view(o: OrderMoney, paid: number) {
   return {
     id: o.public_id, number: o.number, label: `ORD-${o.number}`, type: o.type, tableNumber: o.table_number, status: o.status,
     customerName: o.customer_name, customerId: o.customer_id, subtotal: o.subtotal, discount: o.discount, discountReason: o.discount_reason,
-    loyaltyDiscount: o.loyalty_discount, loyaltyPoints: o.loyalty_points_used,
+    loyaltyDiscount: o.loyalty_discount, loyaltyPoints: o.loyalty_points_used, pointsEarned: o.loyalty_points_earned, customer: customerOf(o.customer_id),
     tax: o.tax, serviceCharge: o.service_charge, total: o.total, paid, due: Math.max(0, o.total - paid),
     paymentStatus: o.payment_status, createdAt: iso(o.created_at),
     items: all<{ name: string; quantity: number; line_total: number; options: string | null }>(
@@ -365,6 +372,7 @@ export function receipt(staff: Staff, opts: { orderIds: string[]; paymentId?: st
   if (printed) audit(staff, staff.name, 'receipt.reprint', ids.join(','))
   const s = getSettings()
   return {
+    loyalty: { enabled: s.loyaltyEnabled, pointValue: s.loyaltyPointValue, minRedeem: s.loyaltyMinRedeem, maxRedeemPercent: s.loyaltyMaxRedeemPercent },
     restaurant: { name: s.restaurantName, header: s.receiptHeader, footer: s.receiptFooter, currency: s.currency },
     reprint: printed > 0, printedAt: new Date().toISOString(), cashier: staff.name,
     tableNumber: orders.every((o) => o.table_number === orders[0].table_number) ? orders[0].table_number : '',

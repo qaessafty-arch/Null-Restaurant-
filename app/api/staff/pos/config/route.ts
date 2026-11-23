@@ -16,6 +16,7 @@ export const GET = route(async () => {
     ratesUpdatedAt: s.exchangeRatesUpdatedAt || null,
     methods: s.paymentMethods.filter((m) => m.enabled),
     maxCashierDiscountPercent: s.maxCashierDiscountPercent,
+    loyalty: { enabled: s.loyaltyEnabled, pointValue: s.loyaltyPointValue, minRedeem: s.loyaltyMinRedeem, maxRedeemPercent: s.loyaltyMaxRedeemPercent },
     deliveryEnabled: s.deliveryEnabled,
     taxPercent: s.taxPercent,
     servicePercent: s.servicePercent,

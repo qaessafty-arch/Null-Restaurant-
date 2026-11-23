@@ -7,6 +7,7 @@ import { ArrowLeft, Bell, Check, Clock, Flame, Receipt, X } from 'lucide-react'
 import { OrderingProvider } from '@/components/ordering/provider'
 import { ServiceFab } from '@/components/ordering/service-fab'
 import { fmtNum, money, tr, type Lang } from '@/components/ordering/i18n'
+import { RateOrder } from '@/components/ordering/rate-order'
 
 type Item = { name: string; quantity: number; lineTotal: number; instructions: string; options: Array<{ group: string; name: string; delta: number }> }
 type Order = {
@@ -168,6 +169,8 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
             })}
           </ol>
         </section>
+
+        {['served', 'completed'].includes(order.status) && <RateOrder token={token} lang={lang} />}
 
         <section className="ot-card">
           <h2>{tr(lang, 'yourOrder')}</h2>

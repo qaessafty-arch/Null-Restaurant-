@@ -103,7 +103,7 @@ features extend them; nothing working is replaced.
 | 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | Done |
 | 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | Done (transfers deferred, see notes) |
 | 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | Done |
-| 9 | CRM: customers, history, loyalty, consent | |
+| 9 | CRM: customers, history, loyalty, consent | Done |
 | 10 | Customer site: reservations page, offers, gallery, order history; staff/admin RTL | |
 | 11 | Security and performance pass | |
 | 12 | End-to-end workflow tests (the ten critical flows in the brief) | |
@@ -258,3 +258,26 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
   island inside a light admin frame in dark mode, and the admin shell forced white inputs on them.
 - Tests: 83/83 (adds `tests/finance.test.mjs`: exact deltas for sales, discounts, collections, refunds,
   outstanding, cost of goods, waste, expenses and profit; permissions; exports; dashboard).
+
+### Stage 9 (done)
+
+- **Customers** (migration 8): one record per phone number (`lib/phone.ts`; existing duplicates merged);
+  created by bookings, POS orders with a phone, attaching a customer to a bill, or staff.
+- **Loyalty** (`lib/server/customers.ts`): points earned once when an order is fully paid (tier
+  multiplier by lifetime spend), taken back if it stops being fully paid; redeeming is a discount
+  (minimum, share-of-bill cap, balance, never below what was paid), returned if the order is cancelled;
+  manual adjustments by managers with a reason; every change in `loyalty_transactions`. Finance reports
+  points redeemed separately and they reduce net sales, not cash collected.
+- **Privacy**: roles that only look customers up see a masked phone and no spend; marketing consent
+  is stored with its time and only opted-in customers are exported; "forget" anonymises the customer
+  everywhere and keeps the sales.
+- **Feedback** (`lib/server/feedback.ts`): one rating per served order from its tracking page, website
+  reviews pending until a manager publishes them, public replies; the public average counts every
+  rating, so hiding comments cannot raise it.
+- **Screens**: Admin > Customers (list, birthdays this week, profile with history, points, edit,
+  consent, forget; feedback moderation; loyalty programme settings), POS recognises returning guests
+  by phone and shows allergies, bills attach customers and use points, receipts show points.
+- Not done here: the homepage's hard-coded reviews ("500+ reviews", "Google rating") and its "Write a
+  review" button, which only keeps the review in that browser. Left for the website redesign; the
+  owner should confirm whether the hard-coded figures are real.
+- Tests: 96/96 (adds `tests/customers.test.mjs`, a v7 -> v8 merge test).

@@ -5,6 +5,7 @@ export type PosConfig = {
   ratesUpdatedAt: string | null
   methods: Array<{ id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other' }>
   maxCashierDiscountPercent: number
+  loyalty: { enabled: boolean; pointValue: number; minRedeem: number; maxRedeemPercent: number }
   deliveryEnabled: boolean
   taxPercent: number
   servicePercent: number
@@ -15,6 +16,8 @@ export type BillOrder = {
   id: string; number: number; label: string; type: string; tableNumber: string; status: string; customerName: string
   subtotal: number; discount: number; discountReason: string; tax: number; serviceCharge: number; total: number
   paid: number; due: number; paymentStatus: string; createdAt: string
+  loyaltyDiscount: number; loyaltyPoints: number; pointsEarned: number
+  customer: { id: number; name: string; tier: string; points: number; preferences: string } | null
   items: Array<{ name: string; quantity: number; lineTotal: number; options: string }>
 }
 
@@ -22,7 +25,7 @@ export type Bill = {
   table?: { id: number; number: string; location: string }
   billRequestedAt?: string | null
   orders: BillOrder[]
-  subtotal: number; discount: number; tax: number; serviceCharge: number; total: number; paid: number; due: number
+  subtotal: number; discount: number; loyaltyDiscount: number; tax: number; serviceCharge: number; total: number; paid: number; due: number
 }
 
 export type OpenBill = {

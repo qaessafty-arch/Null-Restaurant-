@@ -247,3 +247,11 @@
 }
 
 .ox-notice { margin:0 0 14px; padding:12px 14px; border-radius:8px; background:#fff4d9; border:1px solid #ecd49a; color:#5c4306; font-size:14px; font-weight:600; }
+
+/* rate a served order */
+.ot-rate form { display: grid; gap: 12px; justify-items: center; }
+.ot-stars { display: flex; justify-content: center; gap: 6px; margin: 4px 0; color: var(--yellow); }
+.ot-stars button { display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; }
+.ot-stars button:focus-visible { outline: 3px solid var(--orange); }
+.ot-comment { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; font-size: 15px; resize: vertical; }
+.ot-rate p { text-align: center; }

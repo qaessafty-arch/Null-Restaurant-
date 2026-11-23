@@ -30,6 +30,21 @@ export function OrderScreen({ config, onCharge }: { config: PosConfig; onCharge:
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const key = useRef(newKey())
   const base = config.baseCurrency
+  // Recognise a returning guest from their phone number (tier, points, allergies).
+  const [known, setKnown] = useState<{ name: string; tier: string; points: number; visits: number; preferences: string; notes: string } | null>(null)
+  useEffect(() => {
+    const digits = customer.phone.replace(/\D/g, '')
+    if (digits.length < 7) { setKnown(null); return }
+    const t = window.setTimeout(() => {
+      api<{ customers: Array<{ name: string; tier: string; points: number; visits: number; preferences: string; notes: string }> }>('GET', `/api/staff/customers?q=${encodeURIComponent(customer.phone)}`)
+        .then((d) => {
+          const c = d.customers.length === 1 ? d.customers[0] : null
+          setKnown(c)
+          if (c) setCustomer((x) => (x.name ? x : { ...x, name: c.name }))
+        }).catch(() => setKnown(null))
+    }, 300)
+    return () => window.clearTimeout(t)
+  }, [customer.phone])
 
   const loadMenu = () => api<{ categories: Category[] }>('GET', '/api/menu').then((d) => setMenu(d.categories)).catch(() => {})
   useEffect(() => { void loadMenu() }, [])
@@ -132,6 +147,15 @@ export function OrderScreen({ config, onCharge }: { config: PosConfig; onCharge:
             <option value="">Choose a table…</option>
             {config.tables.map((t) => <option key={t.id} value={t.id}>Table {t.number}{t.location ? ` · ${t.location}` : ''}</option>)}
           </select>
+        )}
+        {type === 'dine_in' && config.loyalty.enabled && (
+          <input className="ui-input" placeholder="Loyalty phone (optional)" inputMode="tel" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} aria-label="Loyalty phone" />
+        )}
+        {known && (
+          <div className="pos-cust-lookup" role="status">
+            <b>{known.name}</b><span>{known.tier} · {known.points.toLocaleString('en-US')} pts · {known.visits} visits</span>
+            {(known.preferences || known.notes) && <small>{[known.preferences, known.notes].filter(Boolean).join(' · ')}</small>}
+          </div>
         )}
         {type !== 'dine_in' && (
           <div className="pos-customer">
