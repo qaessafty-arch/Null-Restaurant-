@@ -133,15 +133,16 @@
 .ad-howto { display: grid; gap: 8px; margin: 0 0 var(--s-4); padding: var(--s-4) var(--s-4) var(--s-4) 36px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); font-size: 14px; color: var(--text-2); }
 
 /* Fields inside admin screens (legacy markup: bare inputs under a label). */
-.ad-main label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--text-2); }
-.ad-main select, .ad-main input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]), .ad-main textarea {
+/* :where() keeps these legacy rules at class specificity, so the shared ui-* fields keep their own styling. */
+.ad-main :where(label) { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.ad-main :where(select:not(.ui-select), input:not([type=checkbox], [type=radio], [type=file], [type=color], [type=range], .ui-input), textarea:not(.ui-textarea)) {
   min-height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); color: var(--text); font: 15px var(--font-ui); letter-spacing: -.01em;
   transition: border-color var(--dur-micro) var(--ease), box-shadow var(--dur-micro) var(--ease);
 }
-.ad-main textarea { padding: 10px 12px; width: 100%; line-height: 1.45; }
-.ad-main select:not([multiple]) { appearance: none; padding-inline-end: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
-[dir="rtl"] .ad-main select:not([multiple]) { background-position: left 12px center; }
-.ad-main input:focus, .ad-main select:focus, .ad-main textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+.ad-main :where(textarea:not(.ui-textarea)) { padding: 10px 12px; width: 100%; line-height: 1.45; }
+.ad-main :where(select:not([multiple], .ui-select)) { appearance: none; padding-inline-end: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+[dir="rtl"] .ad-main :where(select:not([multiple], .ui-select)) { background-position: left 12px center; }
+.ad-main :where(input, select, textarea):focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
 .ad-form label, .ad-settings label, .ad-inline label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--text-2); }
 .ad-checks { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 10px 0; }
 .ad-checks label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 400; color: var(--text); }

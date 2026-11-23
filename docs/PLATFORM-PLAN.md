@@ -97,14 +97,14 @@ features extend them; nothing working is replaced.
 |---|---|---|
 | 1 | Audit, plan, reproducible test harness | Done |
 | 2 | Migration runner, orders rebuild, permissions and new roles | Done |
-| 3 | Design system tokens, light/dark, staff/admin shell refresh | Tokens done; older screens move over in the design pass |
+| 3 | Design system tokens, light/dark, staff/admin shell refresh | Done (Apple-inspired design pass, see notes) |
 | 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | Done |
 | 5 | Kitchen stations, item routing, timers, delay warnings | Done |
 | 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | Done |
 | 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | Done (transfers deferred, see notes) |
 | 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | Done |
 | 9 | CRM: customers, history, loyalty, consent | Done |
-| 10 | Customer site: reservations page, offers, gallery, order history; staff/admin RTL | |
+| 10 | Customer site: reservations page, offers, gallery, order history; staff/admin RTL | Site, table menu app and booking redesigned; staff/admin RTL still open |
 | 11 | Security and performance pass | |
 | 12 | End-to-end workflow tests (the ten critical flows in the brief) | |
 
@@ -281,3 +281,41 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
   review" button, which only keeps the review in that browser. Left for the website redesign; the
   owner should confirm whether the hard-coded figures are real.
 - Tests: 96/96 (adds `tests/customers.test.mjs`, a v7 -> v8 merge test).
+
+### Design pass: Apple-inspired system (done)
+
+One visual language across the website, the table menu, staff tools and admin. Visual and UX change
+only: no API, schema, auth, payment or business-rule changes; all 96 API tests pass after each step.
+
+- **Tokens** (`app/tokens.css`): neutral surfaces (#F5F5F7 / #FFFFFF, dark #161617 / #1D1D1F / #2C2C2E),
+  text #1D1D1F / #6E6E73, one accent (#0071E3, dark #2997FF) for the action that matters, status colours
+  only for status, `--brand` (#D95B32) only for the restaurant's own mark. Type: the system SF Pro stack
+  with self-hosted Inter and Noto Sans Arabic (SIL OFL, `public/fonts`) as fallbacks; Google Fonts removed.
+  Scale, radii, spacing (4/8/12/16/24/32/48/64/80) and motion durations (150/190/260/320 ms) are tokens;
+  `prefers-reduced-motion` turns motion off globally. Dialogs become bottom sheets on phones.
+- **Theme**: device / light / dark, chosen in the top bar, saved per device, applied before first paint
+  (`lib/theme.ts`). The kitchen display is always dark, including its top bar.
+- **Admin frame**: grouped sidebar (Overview, Operations, Management, Business, System) that collapses
+  to an icon rail with tooltips and becomes an off-canvas drawer on phones; top bar with breadcrumbs,
+  quick screen search (Cmd/Ctrl+K, only screens the role can open), a notification centre over the real
+  staff feed with per-device unread state and a sound toggle, appearance and profile menus.
+  Not added: a staff language switch (staff screens are English only; a switch would do nothing yet),
+  a branch selector (single-branch data model).
+- **Kitchen display**: tickets grouped into New, Preparing, Delayed and Ready lanes. Same tickets,
+  same tap actions; a ticket's lane comes from its real state (late first, then whether any line started).
+- **Table ordering app** (`/menu`): table QR codes and waiter links now land here instead of the homepage
+  anchor. Welcome with the table, language switch, search, category chips, featured rail, product tiles,
+  item and cart sheets, cart bar, table services. It reuses the website's ordering components and APIs.
+- **Order tracking**: a pass-style card; timeline Submitted, Confirmed, Preparing, Ready, Served from the
+  real status history; the empty "Table" label for counter orders is gone.
+- **Website**: editorial homepage (dark hero, how-it's-made, featured, statement, menu, story, reviews,
+  visit, footer). Reviews show only published reviews from the review system and the real average of all
+  ratings; the template's hard-coded sample reviews and the "500+ reviews" / "Google rating" claims are no
+  longer displayed because nothing backed them (owner: publish real reviews from Customers → Feedback).
+  "Write a review" now posts to `/api/feedback` (held for moderation). Opening hours, open/closed and the
+  WhatsApp number come from settings; the fake "GRILL ONLINE" status is replaced by the real state.
+- **Fixes found on the way**: the menu chips scrolled the whole page to the menu on load; waiter cards
+  showed an empty table badge for counter orders; legacy admin field rules overrode the shared inputs.
+- **Owner to confirm**: marketing copy kept as written by the owner ("30 min delivery", "100% fresh beef",
+  "in your hands in 5 minutes", the street address). Kurdish and Arabic strings added in this pass were
+  written without a native review.

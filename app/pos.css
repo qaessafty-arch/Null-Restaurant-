@@ -9,7 +9,7 @@
 .pos-order { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s-4); align-items: start; }
 .pos-menu { min-width: 0; }
 .pos-search { position: relative; margin-bottom: var(--s-3); }
-.pos-search svg { position: absolute; inset-inline-start: 14px; top: 13px; color: var(--text-3); pointer-events: none; }
+.pos-search svg { position: absolute; inset-inline-start: 14px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
 .pos-search .ui-input { padding-inline-start: 42px; }
 .pos-cats { display: flex; gap: var(--s-2); margin-bottom: var(--s-3); overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
 .pos-cats button { flex: none; min-height: 40px; padding: 0 var(--s-4); border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-2); font: 600 13px var(--font-ui); }
