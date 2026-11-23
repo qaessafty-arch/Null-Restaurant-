@@ -35,6 +35,18 @@
   unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC;
 }
 
+/* Noto Naskh Arabic (SIL OFL, public/fonts): the chosen face for Kurdish (Sorani) and Arabic text. */
+@font-face {
+  font-family: 'Noto Naskh Arabic'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/noto-naskh-arabic-arabic-400.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC;
+}
+@font-face {
+  font-family: 'Noto Naskh Arabic'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/noto-naskh-arabic-latin-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212;
+}
+
 :root {
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif;
@@ -127,6 +139,9 @@
 html { -webkit-text-size-adjust: 100%; }
 body { font-family: var(--font-ui); font-size: var(--t-body); line-height: 1.47; letter-spacing: -.01em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 :lang(ar) body, [lang="ar"], [lang="ckb"] { letter-spacing: 0; }
+/* Kurdish and Arabic text: Noto Naskh Arabic for headings and body; English keeps the system face. */
+[lang="ckb"], [lang="ar"] { --font-ui: 'Noto Naskh Arabic', -apple-system, system-ui, serif; --font-display: 'Noto Naskh Arabic', -apple-system, system-ui, serif; }
+[lang="ckb"], [lang="ar"] { font-family: 'Noto Naskh Arabic', serif; }
 ::selection { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 :focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-sm); }
 
