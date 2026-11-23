@@ -28,7 +28,7 @@ function Manage({ token }: { token: string }) {
     if (!x.ok) { setErr(d.error ?? 'Error'); return }
     setR(d.reservation); setAsking(false)
   }
-  if (missing) return <main className="pub-main"><p className="ui-alert warning">{t.notFound}</p><Link href="/reserve" className="text-link">{t.title}</Link></main>
+  if (missing) return <main className="pub-main"><p className="ui-alert warning">{t.notFound}</p><Link href="/reserve" className="pub-back">{t.title}</Link></main>
   if (!r) return <main className="pub-main"><p className="ui-muted">…</p></main>
   return (
     <main className="pub-main">
@@ -46,7 +46,7 @@ function Manage({ token }: { token: string }) {
         {['pending', 'confirmed'].includes(r.status) && (asking
           ? <div className="pub-confirm"><p>{t.cancelAsk}</p><button type="button" className="ui-btn danger" onClick={cancel}>{t.cancel}</button><button type="button" className="ui-btn ghost" onClick={() => setAsking(false)}>{t.back}</button></div>
           : <button type="button" className="ui-btn danger" onClick={() => setAsking(true)}>{t.cancel}</button>)}
-        <Link href="/" className="text-link">{t.back}</Link>
+        <Link href="/" className="pub-back">{t.back}</Link>
       </div>
     </main>
   )

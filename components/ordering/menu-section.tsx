@@ -98,9 +98,10 @@ export function FullMenu({ eyebrow, title, variant = 'site' }: { eyebrow: string
   }, [categories, results])
 
   useEffect(() => {
-    // keep the active chip in view in the horizontal nav
-    const el = navRef.current?.querySelector<HTMLElement>('[data-active="true"]')
-    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+    // Keep the active chip in view by scrolling the chip strip sideways only (scrollIntoView would also move the page).
+    const nav = navRef.current
+    const el = nav?.querySelector<HTMLElement>('[data-active="true"]')
+    if (nav && el) nav.scrollTo({ left: el.offsetLeft - (nav.clientWidth - el.clientWidth) / 2, behavior: 'smooth' })
   }, [active])
 
   const open = settings?.isOpen

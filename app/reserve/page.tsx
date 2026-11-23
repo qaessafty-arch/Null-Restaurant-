@@ -74,7 +74,7 @@ function Reserve() {
 
   return (
     <main className="pub-main">
-      <p className="eyebrow dark"><span />{t.sub}</p>
+      <p className="pub-eyebrow">{t.sub}</p>
       <h1 className="pub-title">{t.title}</h1>
       <form className="pub-card" onSubmit={submit}>
         <fieldset className="pub-step">
@@ -135,7 +135,7 @@ function Reserve() {
         </fieldset>
 
         {err && <p className="ui-alert danger" role="alert">{err}</p>}
-        <button type="submit" className="button button-orange pub-submit" disabled={busy || !time}>
+        <button type="submit" className="ui-btn primary lg pub-submit" aria-busy={busy} disabled={busy || !time}>
           <CalendarCheck size={18} /> {busy ? t.booking : time ? `${t.book} · ${time}` : t.pickTime}
         </button>
       </form>
@@ -165,7 +165,7 @@ function Confirmation({ b }: { b: Booked }) {
           <code dir="ltr">{link}</code>
           <button type="button" className="ui-btn sm" onClick={() => { void navigator.clipboard?.writeText(link); setCopied(true) }}><Copy size={14} /> {copied ? t.copied : t.copy}</button>
         </div>
-        <Link href="/" className="text-link">{t.back}</Link>
+        <Link href="/" className="pub-back">{t.back}</Link>
       </div>
     </main>
   )
