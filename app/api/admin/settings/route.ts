@@ -74,6 +74,7 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
   maxCashierDiscountPercent: (v) => num(v, 'cashier discount limit', 0, 100),
   receiptHeader: (v) => str(v, 'receipt header', { max: 300 }),
   receiptFooter: (v) => str(v, 'receipt footer', { max: 300 }),
+  kitchenDelayMinutes: (v) => num(v, 'kitchen delay warning', 3, 180),
 }
 
 export const PUT = route(async (req) => {

@@ -29,6 +29,8 @@ export interface Settings {
   maxCashierDiscountPercent: number
   receiptHeader: string
   receiptFooter: string
+  /** An order still cooking after max(its prep estimate, this) minutes is flagged late. */
+  kitchenDelayMinutes: number
 }
 
 export type PaymentMethod = { id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other'; enabled: boolean }
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxCashierDiscountPercent: 10,
   receiptHeader: '',
   receiptFooter: 'Thank you for eating with us.',
+  kitchenDelayMinutes: 15,
 }
 
 type SeedItem = { name: string; desc: string; price: number; image: string; badge: string; spicy: boolean }
@@ -147,7 +150,10 @@ function seedMenu(conn: DatabaseSync) {
   if (!fs.existsSync(file)) return
   const data = JSON.parse(fs.readFileSync(file, 'utf8')) as { categories: SeedCat[] }
 
-  const insCat = conn.prepare('INSERT INTO categories (name_en, name_ku, name_ar, icon, sort) VALUES (?,?,?,?,?)')
+  // Default kitchen routing for the seeded menu (stations themselves come from migration 4).
+  const STATION: Record<string, string> = { 'Meat Burgers': 'Grill', 'Chicken Burgers': 'Grill', Sides: 'Fryer', Fries: 'Fryer', Drinks: 'Drinks' }
+  const stationId = (cat: string) => (conn.prepare('SELECT id FROM kitchen_stations WHERE name = ?').get(STATION[cat] ?? '') as { id: number } | undefined)?.id ?? null
+  const insCat = conn.prepare('INSERT INTO categories (name_en, name_ku, name_ar, icon, sort, station_id) VALUES (?,?,?,?,?,?)')
   const insItem = conn.prepare(
     `INSERT INTO items (category_id, name_en, desc_en, price, image, badge, spicy, featured, popular, ingredients, sort)
      VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
@@ -170,7 +176,7 @@ function seedMenu(conn: DatabaseSync) {
 
   data.categories.forEach((cat, ci) => {
     const i18n = CATEGORY_I18N[cat.name] ?? { ku: '', ar: '', icon: '' }
-    const c = insCat.run(cat.name, i18n.ku, i18n.ar, i18n.icon, ci)
+    const c = insCat.run(cat.name, i18n.ku, i18n.ar, i18n.icon, ci, stationId(cat.name))
     const categoryId = Number(c.lastInsertRowid)
 
     cat.items.forEach((item, ii) => {

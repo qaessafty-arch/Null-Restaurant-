@@ -402,6 +402,44 @@ CREATE TABLE receipt_prints (
 `)
     },
   },
+  {
+    // Stage 5. Kitchen stations. Each order line is routed to a station when the order is placed and
+    // carries its own status, so the grill and the drinks counter work their own tickets.
+    version: 4,
+    up: (c) => {
+      c.exec(`
+CREATE TABLE kitchen_stations (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  color TEXT NOT NULL DEFAULT '#d95b32',
+  sort INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1
+);
+ALTER TABLE categories ADD COLUMN station_id INTEGER REFERENCES kitchen_stations(id) ON DELETE SET NULL;
+ALTER TABLE items ADD COLUMN station_id INTEGER REFERENCES kitchen_stations(id) ON DELETE SET NULL;
+ALTER TABLE order_items ADD COLUMN station_id INTEGER REFERENCES kitchen_stations(id) ON DELETE SET NULL;
+ALTER TABLE order_items ADD COLUMN kitchen_status TEXT NOT NULL DEFAULT 'new' CHECK (kitchen_status IN ('new','preparing','ready'));
+ALTER TABLE order_items ADD COLUMN started_at TEXT;
+ALTER TABLE order_items ADD COLUMN ready_at TEXT;
+ALTER TABLE orders ADD COLUMN delay_notified_at TEXT;
+-- Whether the guest kept the default for this choice; the kitchen only needs the deviations.
+ALTER TABLE order_item_options ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX idx_order_items_station ON order_items(station_id, kitchen_status);
+
+INSERT INTO kitchen_stations (name, color, sort) VALUES ('Grill', '#d95b32', 0), ('Fryer', '#d9aa55', 1), ('Drinks', '#4f8fd6', 2);
+UPDATE categories SET station_id = (SELECT id FROM kitchen_stations WHERE name = 'Grill') WHERE name_en IN ('Meat Burgers', 'Chicken Burgers');
+UPDATE categories SET station_id = (SELECT id FROM kitchen_stations WHERE name = 'Fryer') WHERE name_en IN ('Sides', 'Fries');
+UPDATE categories SET station_id = (SELECT id FROM kitchen_stations WHERE name = 'Drinks') WHERE name_en = 'Drinks';
+
+UPDATE order_items SET station_id = (
+  SELECT COALESCE(i.station_id, c.station_id) FROM items i JOIN categories c ON c.id = i.category_id WHERE i.id = order_items.item_id);
+UPDATE order_items SET kitchen_status = CASE
+  WHEN (SELECT status FROM orders o WHERE o.id = order_items.order_id) IN ('ready','served','completed') THEN 'ready'
+  WHEN (SELECT status FROM orders o WHERE o.id = order_items.order_id) = 'preparing' THEN 'preparing'
+  ELSE 'new' END;
+`)
+    },
+  },
 ]
 
 /**

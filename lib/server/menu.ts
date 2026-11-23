@@ -1,11 +1,12 @@
 import 'server-only'
 import { all } from './db'
 
-type Cat = { id: number; name_en: string; name_ku: string; name_ar: string; icon: string; sort: number; visible: number }
+type Cat = { id: number; name_en: string; name_ku: string; name_ar: string; icon: string; sort: number; visible: number; station_id: number | null }
 type Item = {
   id: number; category_id: number; name_en: string; name_ku: string; name_ar: string; desc_en: string; desc_ku: string; desc_ar: string
   price: number; image: string; prep_minutes: number | null; badge: string; spicy: number; featured: number; popular: number
   offer_price: number | null; offer_label: string; ingredients: string; allergens: string; available: number; visible: number; sort: number
+  station_id: number | null
 }
 type Group = { id: number; item_id: number; name_en: string; name_ku: string; name_ar: string; kind: string; required: number; min_select: number; max_select: number; sort: number }
 type Opt = { id: number; group_id: number; name_en: string; name_ku: string; name_ar: string; price_delta: number; is_default: number; available: number; sort: number }
@@ -29,6 +30,7 @@ export function loadMenu(admin = false) {
 
   return cats.map((c) => ({
     id: c.id, name: { en: c.name_en, ku: c.name_ku, ar: c.name_ar }, icon: c.icon, sort: c.sort, visible: !!c.visible,
+    stationId: admin ? c.station_id : undefined,
     items: items.filter((i) => i.category_id === c.id).map((i) => ({
       id: i.id, categoryId: i.category_id,
       name: { en: i.name_en, ku: i.name_ku, ar: i.name_ar },
@@ -37,6 +39,7 @@ export function loadMenu(admin = false) {
       badge: i.badge, spicy: !!i.spicy, featured: !!i.featured,
       popular: !!i.popular || topIds.has(i.id), unitsSold: admin ? sold.get(i.id) ?? 0 : undefined,
       ingredients: parse(i.ingredients), allergens: parse(i.allergens), available: !!i.available, visible: !!i.visible, sort: i.sort,
+      stationId: admin ? i.station_id : undefined,
       groups: groups.filter((g) => g.item_id === i.id).map((g) => ({
         id: g.id, name: { en: g.name_en, ku: g.name_ku, ar: g.name_ar }, kind: g.kind as 'single' | 'multi',
         required: !!g.required, min: g.min_select, max: g.max_select, sort: g.sort,

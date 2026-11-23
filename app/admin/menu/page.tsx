@@ -6,7 +6,8 @@ import { api, ApiErr, iqd } from '@/components/staff/api'
 import { ItemEditor, type EditItem } from './item-editor'
 
 type LName = { en: string; ku: string; ar: string }
-type Cat = { id: number; name: LName; icon: string; visible: boolean; items: Array<EditItem & { unitsSold?: number }> }
+type Cat = { id: number; name: LName; icon: string; visible: boolean; stationId: number | null; items: Array<EditItem & { unitsSold?: number; stationId?: number | null }> }
+type Station = { id: number; name: string; color: string; active: boolean }
 
 const ICONS = ['burger', 'drumstick', 'shrimp', 'fries', 'drink', '']
 
@@ -16,11 +17,14 @@ export default function MenuAdmin() {
   const [edit, setEdit] = useState<EditItem | 'new' | null>(null)
   const [catForm, setCatForm] = useState<{ id?: number; nameEn: string; nameKu: string; nameAr: string; icon: string } | null>(null)
   const [err, setErr] = useState('')
+  const [stations, setStations] = useState<Station[]>([])
+  const [newStation, setNewStation] = useState('')
 
   const load = useCallback(async () => {
     try {
       const d = await api<{ categories: Cat[] }>('GET', '/api/admin/categories')
       setCats(d.categories); setSel((s) => s ?? d.categories[0]?.id ?? null); setErr('')
+      setStations((await api<{ stations: Station[] }>('GET', '/api/admin/stations')).stations)
     } catch (e) { setErr((e as Error).message) }
   }, [])
   useEffect(() => { void load() }, [load])
@@ -55,10 +59,32 @@ export default function MenuAdmin() {
               </li>
             ))}
           </ul>
+          <div className="ad-panel-head" style={{ marginTop: 18 }}><h2>Kitchen stations</h2></div>
+          <ul className="ad-stations">
+            {stations.map((s) => (
+              <li key={s.id} className={s.active ? '' : 'dim'}>
+                <input type="color" value={s.color} aria-label={`${s.name} colour`} onChange={(e) => run(() => api('PATCH', '/api/admin/stations', { id: s.id, color: e.target.value }))} />
+                <span>{s.name}</span>
+                <label className="switch"><input type="checkbox" checked={s.active} onChange={(e) => run(() => api('PATCH', '/api/admin/stations', { id: s.id, active: e.target.checked }))} /><span>{s.active ? 'On' : 'Off'}</span></label>
+              </li>
+            ))}
+          </ul>
+          <form className="ad-inline-add" onSubmit={(e) => { e.preventDefault(); if (newStation.trim()) void run(async () => { await api('POST', '/api/admin/stations', { name: newStation.trim() }); setNewStation('') }) }}>
+            <input placeholder="New station, e.g. Desserts" value={newStation} onChange={(e) => setNewStation(e.target.value)} aria-label="New station name" />
+            <button className="st-btn sm" type="submit" disabled={!newStation.trim()}><Plus size={14} /> Add</button>
+          </form>
         </section>
 
         <section className="ad-panel">
           <div className="ad-panel-head"><h2>{cat?.name.en ?? 'Items'}</h2>{cat && <button className="st-btn sm primary" onClick={() => setEdit('new')}><Plus size={14} /> Add item</button>}</div>
+          {cat && (
+            <label className="ad-route">Kitchen station for {cat.name.en}
+              <select value={cat.stationId ?? ''} onChange={(e) => run(() => api('PUT', '/api/admin/stations', { categoryId: cat.id, stationId: e.target.value ? Number(e.target.value) : null }))}>
+                <option value="">Not routed</option>
+                {stations.map((s) => <option key={s.id} value={s.id}>{s.name}{s.active ? '' : ' (off)'}</option>)}
+              </select>
+            </label>
+          )}
           {cat && cat.items.length === 0 && <p className="st-muted">No items in this category yet.</p>}
           <ul className="ad-items">
             {cat?.items.map((it) => (
@@ -69,6 +95,11 @@ export default function MenuAdmin() {
                 <label className="price"><input type="number" min={0} step={100} defaultValue={it.price} key={it.price}
                   onBlur={(e) => { const v = Number(e.target.value); if (Number.isInteger(v) && v >= 0 && v !== it.price) void run(() => api('PATCH', `/api/admin/items/${it.id}`, { price: v })) }} aria-label={`Price of ${it.name.en}`} /> <small>IQD</small></label>
                 <label className="switch"><input type="checkbox" checked={it.available} onChange={(e) => run(() => api('PATCH', `/api/admin/items/${it.id}`, { available: e.target.checked }))} /><span>{it.available ? 'Available' : 'Sold out'}</span></label>
+                <select className="ad-item-station" value={it.stationId ?? ''} aria-label={`Station for ${it.name.en}`}
+                  onChange={(e) => run(() => api('PUT', '/api/admin/stations', { itemId: it.id, stationId: e.target.value ? Number(e.target.value) : null }))}>
+                  <option value="">{stations.find((s) => s.id === cat?.stationId)?.name ?? 'Not routed'} (category)</option>
+                  {stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
                 <button className="st-icon dark" aria-label="Edit" onClick={() => setEdit(it)}><Pencil size={16} /></button>
                 <button className="st-icon dark" aria-label="Delete" onClick={() => confirm(`Delete “${it.name.en}”? Past orders keep their prices.`) && run(() => api('DELETE', `/api/admin/items/${it.id}`))}><Trash2 size={16} /></button>
               </li>

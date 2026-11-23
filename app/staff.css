@@ -177,3 +177,15 @@
 .qs-notice div { display:flex; flex-wrap:wrap; gap:8px; } .qs-notice input { flex:1 1 260px; }
 .qs { border-color:var(--ink); }
 .ad-howto { display:grid; gap:8px; margin:0 0 16px; padding:14px 16px 14px 36px; border-radius:12px; background:#fff; border:1px solid var(--line); font-size:14px; }
+
+/* Kitchen station routing in the menu admin */
+.ad-stations { list-style:none; margin:0 0 8px; padding:0; display:grid; gap:6px; }
+.ad-stations li { display:flex; align-items:center; gap:10px; padding:6px 0; } .ad-stations li.dim span { opacity:.55; }
+.ad-stations li > span { flex:1; font-weight:600; font-size:14px; }
+.ad-stations input[type="color"] { width:28px; height:28px; padding:0; border:1px solid var(--line); border-radius:50%; background:none; cursor:pointer; overflow:hidden; }
+.ad-stations input[type="color"]::-webkit-color-swatch-wrapper { padding:0; } .ad-stations input[type="color"]::-webkit-color-swatch { border:0; border-radius:50%; }
+.ad-inline-add { display:flex; gap:8px; } .ad-inline-add input { flex:1; min-width:0; min-height:36px; padding:0 10px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
+.ad-route { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 12px; padding:10px 12px; border-radius:10px; background:#f7f2ea; font-size:13px; font-weight:600; color:var(--muted); }
+.ad-route select, .ad-item-station { min-height:36px; padding:0 8px; border:1px solid var(--line); border-radius:8px; background:#fff; font:inherit; font-size:13px; color:var(--black); }
+.ad-item-station { max-width:170px; }
+.ad-panel .ad-stations input[type="color"] { flex:none; width:28px; height:28px; min-height:0; min-width:0; padding:0; }

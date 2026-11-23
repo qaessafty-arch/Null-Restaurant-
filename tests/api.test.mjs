@@ -211,7 +211,7 @@ test('workflow: confirm -> kitchen -> ready -> served -> completed with role gat
   assert.equal((await t(S.waiter, 'preparing')).status, 403) // only kitchen prepares
   const k = await S.kitchen.api('GET', '/api/staff/kitchen')
   assert.equal(k.data.orders.length, 1)
-  assert.equal(k.data.orders[0].items[0].instructions, 'no napkins please')
+  assert.equal(k.data.orders[0].lines[0].instructions, 'no napkins please')
   assert.equal((await t(S.kitchen, 'preparing')).status, 200)
   assert.equal((await t(S.kitchen, 'ready')).status, 200)
   const n = await S.waiter.api('GET', '/api/staff/notifications?after=0')

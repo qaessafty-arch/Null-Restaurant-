@@ -99,7 +99,7 @@ features extend them; nothing working is replaced.
 | 2 | Migration runner, orders rebuild, permissions and new roles | Done |
 | 3 | Design system tokens, light/dark, staff/admin shell refresh | Tokens done; older screens move over in the design pass |
 | 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | Done |
-| 5 | Kitchen stations, item routing, timers, delay warnings | |
+| 5 | Kitchen stations, item routing, timers, delay warnings | Done |
 | 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | |
 | 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | |
 | 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | |
@@ -148,3 +148,24 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
 - Bug found in browser testing and fixed: change was computed from the USD amount rounded up to the cent
   instead of the amount applied, short-changing the guest by a few dinars. Regression test added.
 - Tests: 45/45 (adds `tests/payments.test.mjs`: TEST 4, TEST 6, concurrency, currency, refunds, voids, discounts).
+
+### Stage 5 (done)
+
+- **Stations** (migration 4): `kitchen_stations`; categories route to a station, an item can override it.
+  Seeded for this menu: Grill (burgers), Fryer (sides, fries), Drinks. Managed in Admin > Menu.
+- **Routing.** Each order line stores its station at order time (later re-routing does not move tickets
+  already in the kitchen) and its own `kitchen_status` (new / preparing / ready).
+- **Order follows lines** (`lib/server/kitchen.ts`): first line started -> order preparing; every line
+  ready -> order ready and the waiter is notified. Whole-order buttons still work and cascade to lines.
+  The order transition still goes through the role-checked workflow.
+- **Late orders**: flagged when cooking longer than max(prep estimate, `kitchenDelayMinutes`, default 15).
+  The waiter and managers are notified once per order (a conditional update makes it once across screens).
+- **Rush**: waiters and managers can push an order to the front; the kitchen cannot reprioritise.
+- **KDS** (`/staff/kitchen`): always dark, large type; station picker remembered per screen; live
+  timers (amber at 75% of target, red and pulsing when late); tap a line to advance it, one button for
+  the station's whole ticket; only options that differ from the standard dish are shown (defaults are
+  snapshotted per order line); instructions, allergens and order notes highlighted; "also waiting on"
+  other stations; ready-for-pickup strip; full-screen button.
+- Bug found in testing and fixed: on a fresh install the migration ran before the menu was seeded, so
+  categories had no station. The seed now applies the same routing.
+- Tests: 54/54 (adds `tests/kitchen.test.mjs`).

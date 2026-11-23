@@ -49,7 +49,7 @@ type OptRow = { id: number; group_id: number; name_en: string; price_delta: numb
 
 export type PricedLine = {
   itemId: number; name: string; unitPrice: number; optionsTotal: number; quantity: number; lineTotal: number
-  instructions: string; options: Array<{ group: string; name: string; delta: number }>; prep: number | null
+  instructions: string; options: Array<{ group: string; name: string; delta: number; isDefault: boolean }>; prep: number | null
 }
 
 /** The only place prices are computed. The browser's numbers are never used. */
@@ -79,7 +79,7 @@ export function priceCart(lines: CartLine[]) {
     const chosen = new Set((l.optionIds ?? []).map(Number))
     if (chosen.size !== (l.optionIds ?? []).length) throw new ApiError(400, 'Duplicate options', 'invalid_option')
     const itemGroups = groups.filter((g) => g.item_id === item.id)
-    const selected: Array<{ group: string; name: string; delta: number }> = []
+    const selected: Array<{ group: string; name: string; delta: number; isDefault: boolean }> = []
 
     for (const g of itemGroups) {
       const gOpts = opts.filter((o) => o.group_id === g.id)
@@ -95,7 +95,7 @@ export function priceCart(lines: CartLine[]) {
       if (picks.length < g.min_select) throw new ApiError(400, `Please choose: ${g.name_en}`, 'missing_option')
       for (const p of picks) {
         chosen.delete(p.id)
-        selected.push({ group: g.name_en, name: p.name_en, delta: p.price_delta })
+        selected.push({ group: g.name_en, name: p.name_en, delta: p.price_delta, isDefault: !!p.is_default })
       }
     }
     if (chosen.size) throw new ApiError(400, 'Invalid option for this item', 'invalid_option') // option from another item
@@ -133,12 +133,13 @@ const orderNo = (n: number) => `ORD-${n}`
 export function insertLines(orderId: number, lines: PricedLine[]) {
   for (const l of lines) {
     const li = run(
-      'INSERT INTO order_items (order_id, item_id, name, unit_price, options_total, quantity, line_total, instructions) VALUES (?,?,?,?,?,?,?,?)',
-      orderId, l.itemId, l.name, l.unitPrice, l.optionsTotal, l.quantity, l.lineTotal, l.instructions,
+      `INSERT INTO order_items (order_id, item_id, name, unit_price, options_total, quantity, line_total, instructions, station_id)
+       VALUES (?,?,?,?,?,?,?,?, (SELECT COALESCE(i.station_id, c.station_id) FROM items i JOIN categories c ON c.id = i.category_id WHERE i.id = ?))`,
+      orderId, l.itemId, l.name, l.unitPrice, l.optionsTotal, l.quantity, l.lineTotal, l.instructions, l.itemId,
     )
     for (const o of l.options)
-      run('INSERT INTO order_item_options (order_item_id, group_name, option_name, price_delta) VALUES (?,?,?,?)',
-        Number(li.lastInsertRowid), o.group, o.name, o.delta)
+      run('INSERT INTO order_item_options (order_item_id, group_name, option_name, price_delta, is_default) VALUES (?,?,?,?,?)',
+        Number(li.lastInsertRowid), o.group, o.name, o.delta, o.isDefault ? 1 : 0)
   }
 }
 
@@ -327,12 +328,6 @@ export function listOrders(f: ListFilter) {
   return { total, orders: rows.map((o) => ({ ...base(o), itemCount: o.item_count })) }
 }
 
-/** Kitchen display: confirmed/preparing/ready with full line detail. */
-export function kitchenOrders() {
-  const rows = all<OrderRow>(`SELECT * FROM orders WHERE status IN ('confirmed','preparing','ready') ORDER BY COALESCE(confirmed_at, created_at), id`)
-  return rows.map((o) => ({ ...base(o), items: items(o.id) }))
-}
-
 // ---------------------------------------------------------------- transitions
 
 export type Actor = { staff: Staff | null; label: string }
@@ -370,7 +365,12 @@ export function transition(
     run(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`, ...args, o.id)
     run('INSERT INTO order_status_history (order_id, from_status, to_status, staff_id, actor, note) VALUES (?,?,?,?,?,?)',
       o.id, o.status, to, actor.staff?.id ?? null, actor.label, (opts.reason ?? opts.note ?? '').slice(0, 300))
-    if (FINAL.includes(to)) closeTableIfIdle(o.table_id, o.id)
+    // Kitchen lines follow order-level moves: "start" with nothing started starts every line; "ready" readies all.
+    if (to === 'preparing' && !get(`SELECT 1 FROM order_items WHERE order_id = ? AND kitchen_status != 'new'`, o.id))
+      run(`UPDATE order_items SET kitchen_status = 'preparing', started_at = datetime('now') WHERE order_id = ?`, o.id)
+    if (to === 'ready')
+      run(`UPDATE order_items SET kitchen_status = 'ready', started_at = COALESCE(started_at, datetime('now')), ready_at = COALESCE(ready_at, datetime('now')) WHERE order_id = ? AND kitchen_status != 'ready'`, o.id)
+    if (FINAL.includes(to) && o.table_id) closeTableIfIdle(o.table_id, o.id)
 
     const label = orderNo(o.number)
     if (to === 'confirmed') notify('kitchen', 'confirmed', `New order ${label}`, `Table ${o.table_number}`, o.id)
