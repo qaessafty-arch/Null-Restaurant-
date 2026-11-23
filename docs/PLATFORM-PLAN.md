@@ -97,8 +97,8 @@ features extend them; nothing working is replaced.
 |---|---|---|
 | 1 | Audit, plan, reproducible test harness | Done |
 | 2 | Migration runner, orders rebuild, permissions and new roles | Done |
-| 3 | Design system tokens, light/dark, staff/admin shell refresh | |
-| 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | |
+| 3 | Design system tokens, light/dark, staff/admin shell refresh | Tokens done; older screens move over in the design pass |
+| 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | Done |
 | 5 | Kitchen stations, item routing, timers, delay warnings | |
 | 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | |
 | 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | |
@@ -125,3 +125,26 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
   (unlimited password guesses by rotating fake IPs). That header is now believed only with
   `TRUST_PROXY=1`; without it, per-IP limits are skipped and per-user / per-session limits remain.
 - Tests: 34/34 (25 original + 4 migration + 5 role matrix).
+
+### Stage 4 (done)
+
+- **Ledger.** `payments` + `payment_allocations` (migration 3). A payment settles one or more orders,
+  oldest first; a refund is a separate row pointing at the payment it reverses; a void marks a mistaken
+  payment and keeps it. `orders.payment_status` is a cache recomputed from the ledger in the same
+  transaction. Requesting the bill changes nothing financially.
+- **Rules enforced on the server** (`lib/server/payments.ts`): enabled methods only; USD refused until a
+  rate is set (the rate is stored on each payment, and its update time is stamped by the server);
+  transfer/online payments need a reference; cash received must cover the amount; no overpayment;
+  change = cash received - amount applied; idempotency key per cashier; an order with money on it cannot
+  be cancelled until refunded; refunds need `payments.refund` and a reason; cashier discounts capped by
+  `maxCashierDiscountPercent`; a discount can never push the total below what was paid. Tax and service
+  are recomputed at the rates stored on the order.
+- **Online payment** is recorded with its reference after the restaurant confirms it. There is no card
+  gateway integration: that needs a payment provider account and is out of scope until one is chosen.
+- **POS** (`/staff/pos`): menu grid with options dialog, ticket priced by the server quote, order types
+  (table / walk-in / takeaway / delivery), Bills tab (tables asking for the bill first, discounts, split
+  evenly, IQD/USD with change), Transactions tab (today's takings by method, reprint, refund, void),
+  80mm receipt printing with reprints logged.
+- Bug found in browser testing and fixed: change was computed from the USD amount rounded up to the cent
+  instead of the amount applied, short-changing the guest by a few dinars. Regression test added.
+- Tests: 45/45 (adds `tests/payments.test.mjs`: TEST 4, TEST 6, concurrency, currency, refunds, voids, discounts).

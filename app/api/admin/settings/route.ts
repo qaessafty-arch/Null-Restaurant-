@@ -1,6 +1,7 @@
 import { ApiError, body, json, route, str } from '@/lib/server/http'
 import { audit, requirePerm } from '@/lib/server/auth'
 import { getSettings, setSetting, type Settings } from '@/lib/server/settings'
+import { isCurrency } from '@/lib/money'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,36 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
   whatsapp: (v) => str(v, 'WhatsApp number', { max: 20 }),
   deliveryEnabled: (v) => bool(v, 'delivery'),
   notice: (v) => str(v, 'notice', { max: 200 }),
+  paymentMethods: (v) => {
+    if (!Array.isArray(v) || v.length < 1 || v.length > 12) throw new ApiError(400, 'Provide 1 to 12 payment methods', 'invalid')
+    const ids = new Set<string>()
+    const out = v.map((m) => {
+      const id = str(m?.id, 'method id', { required: true, max: 24 })
+      if (!/^[a-z0-9_-]+$/.test(id) || ids.has(id)) throw new ApiError(400, 'Payment method ids must be unique, lowercase', 'invalid')
+      ids.add(id)
+      if (!['cash', 'card', 'transfer', 'online', 'other'].includes(m.kind)) throw new ApiError(400, 'Invalid payment method kind', 'invalid')
+      return { id, label: str(m.label, 'method name', { required: true, max: 40 }), kind: m.kind, enabled: bool(m.enabled, 'enabled') }
+    })
+    if (!out.some((m) => m.enabled)) throw new ApiError(400, 'Keep at least one payment method enabled', 'invalid')
+    return out
+  },
+  acceptedCurrencies: (v) => {
+    if (!Array.isArray(v) || !v.length || !v.every(isCurrency)) throw new ApiError(400, 'Invalid currencies', 'invalid')
+    return [...new Set(v)]
+  },
+  exchangeRates: (v) => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ApiError(400, 'Invalid exchange rates', 'invalid')
+    const out: Record<string, number> = {}
+    for (const [c, r] of Object.entries(v)) {
+      if (!isCurrency(c)) throw new ApiError(400, `Unknown currency ${c}`, 'invalid')
+      out[c] = num(r, `${c} rate`, 0.000001, 10_000_000)
+    }
+    return out
+  },
+  exchangeRatesUpdatedAt: () => { throw new ApiError(400, 'The rate update time is recorded automatically', 'invalid') },
+  maxCashierDiscountPercent: (v) => num(v, 'cashier discount limit', 0, 100),
+  receiptHeader: (v) => str(v, 'receipt header', { max: 300 }),
+  receiptFooter: (v) => str(v, 'receipt footer', { max: 300 }),
 }
 
 export const PUT = route(async (req) => {
@@ -56,6 +87,8 @@ export const PUT = route(async (req) => {
     validated.push([k as keyof Settings, fn(v)])
   }
   for (const [k, v] of validated) { setSetting(k, v); changed.push(k) }
-  audit(staff, staff.name, 'settings.update', changed.join(','))
+  if (validated.some(([k]) => k === 'exchangeRates')) setSetting('exchangeRatesUpdatedAt', new Date().toISOString())
+  audit(staff, staff.name, 'settings.update', changed.join(','),
+    validated.some(([k]) => k === 'exchangeRates') ? JSON.stringify(getSettings().exchangeRates) : '')
   return json({ settings: getSettings() })
 })

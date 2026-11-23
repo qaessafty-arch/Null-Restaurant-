@@ -23,7 +23,7 @@ export function useLive(fn: () => void, intervalMs = 8000) {
     try {
       es = new EventSource('/api/staff/events')
       const kick = () => { window.clearTimeout(debounce); debounce = window.setTimeout(run, 250) }
-      for (const ev of ['order', 'request', 'notification']) es.addEventListener(ev, kick)
+      for (const ev of ['order', 'request', 'notification', 'payment']) es.addEventListener(ev, kick)
     } catch { /* polling only */ }
     const vis = () => { if (document.visibilityState === 'visible') run() }
     document.addEventListener('visibilitychange', vis)

@@ -21,7 +21,17 @@ export interface Settings {
   verifyTtlMinutes: number; tableSessionHours: number; requestTypes: string[]; soundAlerts: boolean
   languages: string[]; whatsapp: string
   deliveryEnabled: boolean; notice: string
+  paymentMethods: PaymentMethod[]
+  acceptedCurrencies: string[]
+  /** Base-currency units per 1 unit of each foreign currency, e.g. { USD: 1310 }. Empty = not accepted. */
+  exchangeRates: Record<string, number>
+  exchangeRatesUpdatedAt: string
+  maxCashierDiscountPercent: number
+  receiptHeader: string
+  receiptFooter: string
 }
+
+export type PaymentMethod = { id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other'; enabled: boolean }
 
 export const DEFAULT_SETTINGS: Settings = {
   restaurantName: 'Smashed Burger',
@@ -56,6 +66,18 @@ export const DEFAULT_SETTINGS: Settings = {
   whatsapp: '9647500000000',
   deliveryEnabled: true,
   notice: '',
+  paymentMethods: [
+    { id: 'cash', label: 'Cash', kind: 'cash', enabled: true },
+    { id: 'card', label: 'Card', kind: 'card', enabled: true },
+    { id: 'transfer', label: 'Bank transfer', kind: 'transfer', enabled: true },
+    { id: 'online', label: 'Online payment', kind: 'online', enabled: false },
+  ],
+  acceptedCurrencies: ['IQD', 'USD'],
+  exchangeRates: {}, // deliberately empty: a rate must be entered before USD is accepted
+  exchangeRatesUpdatedAt: '',
+  maxCashierDiscountPercent: 10,
+  receiptHeader: '',
+  receiptFooter: 'Thank you for eating with us.',
 }
 
 type SeedItem = { name: string; desc: string; price: number; image: string; badge: string; spicy: boolean }

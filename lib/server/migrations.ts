@@ -342,6 +342,66 @@ CREATE UNIQUE INDEX idx_orders_pending_code ON orders(verify_code) WHERE verific
 `)
     },
   },
+  {
+    // Stage 4. Payments are the only record that money changed hands. A payment is split across one or
+    // more orders by allocations; a refund is its own row pointing at the payment it reverses.
+    version: 3,
+    up: (c) => {
+      c.exec(`
+CREATE TABLE payments (
+  id INTEGER PRIMARY KEY,
+  public_id TEXT NOT NULL UNIQUE,
+  kind TEXT NOT NULL CHECK (kind IN ('payment','refund')),
+  method TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  rate REAL NOT NULL DEFAULT 1 CHECK (rate > 0),
+  base_amount INTEGER NOT NULL CHECK (base_amount > 0),
+  tendered INTEGER,
+  change_base INTEGER NOT NULL DEFAULT 0 CHECK (change_base >= 0),
+  reference TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed','voided')),
+  void_reason TEXT NOT NULL DEFAULT '',
+  voided_by INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  voided_at TEXT,
+  refund_of INTEGER REFERENCES payments(id) ON DELETE RESTRICT,
+  table_id INTEGER REFERENCES tables(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  created_by INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  idempotency_key TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (created_by, idempotency_key),
+  CHECK (kind = 'payment' OR refund_of IS NOT NULL)
+);
+CREATE INDEX idx_payments_created ON payments(created_at);
+CREATE INDEX idx_payments_refund_of ON payments(refund_of);
+
+CREATE TABLE payment_allocations (
+  payment_id INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  PRIMARY KEY (payment_id, order_id)
+);
+CREATE INDEX idx_allocations_order ON payment_allocations(order_id);
+
+-- Rates the order was priced with, so a later discount recomputes tax/service at the same rates.
+ALTER TABLE orders ADD COLUMN tax_rate REAL NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN service_rate REAL NOT NULL DEFAULT 0;
+UPDATE orders SET tax_rate = CASE WHEN subtotal > 0 THEN ROUND(tax * 100.0 / subtotal, 4) ELSE 0 END,
+  service_rate = CASE WHEN subtotal > 0 THEN ROUND(service_charge * 100.0 / subtotal, 4) ELSE 0 END;
+
+CREATE TABLE receipt_prints (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
+  staff_id INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  reprint INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`)
+    },
+  },
 ]
 
 /**
