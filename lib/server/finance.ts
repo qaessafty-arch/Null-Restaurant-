@@ -37,10 +37,10 @@ type Range = ReturnType<typeof parseRange>
 const shiftDay = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
 export function previousRange(r: Range) { return parseRange(shiftDay(r.from, -r.days), shiftDay(r.from, -1)) }
 
-type ORow = { id: number; number: number; type: string; table_number: string; subtotal: number; discount: number; tax: number; service_charge: number; total: number; created_at: string; status: string; confirmed_at: string | null }
+type ORow = { id: number; number: number; type: string; table_number: string; subtotal: number; discount: number; loyalty_discount: number; tax: number; service_charge: number; total: number; created_at: string; status: string; confirmed_at: string | null }
 
 function soldOrders(r: Range) {
-  return all<ORow>(`SELECT o.id, o.number, o.type, o.table_number, o.subtotal, o.discount, o.tax, o.service_charge, o.total, o.created_at, o.status, o.confirmed_at
+  return all<ORow>(`SELECT o.id, o.number, o.type, o.table_number, o.subtotal, o.discount, o.loyalty_discount, o.tax, o.service_charge, o.total, o.created_at, o.status, o.confirmed_at
     FROM orders o WHERE o.created_at >= ? AND o.created_at < ? AND ${SOLD}`, r.fromUtc, r.toUtc)
 }
 
@@ -49,7 +49,7 @@ export function kpis(r: Range) {
   const orders = soldOrders(r)
   const cancelled = get<{ n: number; v: number | null }>(`SELECT COUNT(*) n, SUM(total) v FROM orders WHERE created_at >= ? AND created_at < ? AND status IN ('cancelled','rejected')`, r.fromUtc, r.toUtc)!
   const sum = (k: keyof ORow) => orders.reduce((a, o) => a + (o[k] as number), 0)
-  const subtotal = sum('subtotal'), discounts = sum('discount'), netSales = subtotal - discounts
+  const subtotal = sum('subtotal'), discounts = sum('discount'), loyaltyRedeemed = sum('loyalty_discount'), netSales = subtotal - discounts - loyaltyRedeemed
   const pay = get<{ inflow: number | null; refunds: number | null; cash: number | null }>(
     `SELECT SUM(CASE WHEN kind = 'payment' THEN base_amount END) inflow, SUM(CASE WHEN kind = 'refund' THEN base_amount END) refunds,
        SUM(CASE WHEN method = 'cash' THEN (CASE kind WHEN 'payment' THEN base_amount ELSE -base_amount END) END) cash
@@ -69,7 +69,7 @@ export function kpis(r: Range) {
   const refunds = pay.refunds ?? 0
   return {
     orders: orders.length, cancelledOrders: cancelled.n, cancelledValue: cancelled.v ?? 0,
-    grossSales: sum('total'), subtotal, discounts, netSales, tax: sum('tax'), service: sum('service_charge'),
+    grossSales: sum('total'), subtotal, discounts, loyaltyRedeemed, netSales, tax: sum('tax'), service: sum('service_charge'),
     averageOrder: orders.length ? Math.round(netSales / orders.length) : 0,
     collected: (pay.inflow ?? 0) - refunds, refunds, cashTaken: pay.cash ?? 0, outstanding,
     cogs, waste, expenses, inventoryPurchases: Math.round(stock.purchases ?? 0),
@@ -94,7 +94,7 @@ export function report(r: Range) {
   for (const o of orders) {
     const at = fromSql(o.created_at)
     const day = byDay.get(localDate(at, tz))
-    const net = o.subtotal - o.discount
+    const net = o.subtotal - o.discount - o.loyalty_discount
     if (day) { day.orders++; day.netSales += net }
     const h = hours[Number(hourFmt.format(at)) % 24]; h.orders++; h.netSales += net
     const wd = weekdays[new Date(`${localDate(at, tz)}T12:00:00Z`).getUTCDay()]; wd.orders++; wd.netSales += net
@@ -215,7 +215,7 @@ export function sheetsFor(name: ReportName | 'all', r: Range): Sheet[] {
   const k = rep.kpis
   const out: Record<ReportName, () => Sheet> = {
     summary: () => ({ name: 'Summary', head: ['Measure', `${r.from} to ${r.to}`, `${rep.previous.from} to ${rep.previous.to}`], rows: ([
-      ['Orders', 'orders'], ['Net sales', 'netSales'], ['Discounts', 'discounts'], ['Tax', 'tax'], ['Service charge', 'service'], ['Gross sales (incl. tax/service)', 'grossSales'],
+      ['Orders', 'orders'], ['Net sales', 'netSales'], ['Discounts', 'discounts'], ['Paid with loyalty points', 'loyaltyRedeemed'], ['Tax', 'tax'], ['Service charge', 'service'], ['Gross sales (incl. tax/service)', 'grossSales'],
       ['Average order (net)', 'averageOrder'], ['Collected (payments - refunds)', 'collected'], ['Refunds', 'refunds'], ['Unpaid from these orders', 'outstanding'],
       ['Cost of goods (from recipes)', 'cogs'], ['Gross profit', 'grossProfit'], ['Waste', 'waste'], ['Expenses', 'expenses'], ['Estimated net profit', 'netProfit'],
       ['Inventory purchases (cash out)', 'inventoryPurchases'], ['Food cost %', 'foodCostPercent'], ['Sold items with a recipe %', 'recipeCoverage'],

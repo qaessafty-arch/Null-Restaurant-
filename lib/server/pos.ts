@@ -6,6 +6,7 @@ import { publish } from './events'
 import { getSettings } from './settings'
 import { randomToken, sha256 } from './security'
 import { consumeForOrder } from './inventory'
+import { findOrCreate } from './customers'
 import { insertLines, nextOrderNumber, notify, priceCart, type CartLine } from './orders'
 
 /**
@@ -53,15 +54,16 @@ export function createStaffOrder(staff: Staff, input: StaffOrderInput) {
       if (!table) throw new ApiError(404, 'Table not found', 'not_found')
     }
     const priced = priceCart(input.lines)
+    const customerId = phone ? findOrCreate(name, phone, 'pos') : null
     const number = nextOrderNumber()
     const publicId = randomToken(9)
     const trackToken = randomToken(24)
     const r = run(
-      `INSERT INTO orders (public_id, number, type, channel, table_id, table_number, customer_name, customer_phone, delivery_address,
+      `INSERT INTO orders (public_id, number, type, channel, table_id, table_number, customer_id, customer_name, customer_phone, delivery_address,
          created_by, idempotency_key, track_token_hash, status, verification_status, subtotal, tax, service_charge, total,
          customer_note, est_ready_minutes, confirmed_at, tax_rate, service_rate)
-       VALUES (?, ?, ?, 'pos', ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'not_required', ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`,
-      publicId, number, type, table?.id ?? null, table?.number ?? '', name, phone, address, staff.id, key, sha256(trackToken),
+       VALUES (?, ?, ?, 'pos', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'not_required', ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`,
+      publicId, number, type, table?.id ?? null, table?.number ?? '', customerId, name, phone, address, staff.id, key, sha256(trackToken),
       priced.subtotal, priced.tax, priced.service, priced.total, clean(input.note, 300), priced.estMinutes, priced.taxRate, priced.serviceRate)
     const orderId = Number(r.lastInsertRowid)
     insertLines(orderId, priced.lines)

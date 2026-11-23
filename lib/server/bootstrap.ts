@@ -45,6 +45,16 @@ export interface Settings {
   /** Mark dishes sold out when an ingredient runs out, and back when it is restocked. */
   autoSoldOut: boolean
   expiryWarningDays: number
+  loyaltyEnabled: boolean
+  /** Spend (base currency, after discounts) per point earned. */
+  loyaltyEarnPer: number
+  /** Base currency a point is worth when redeemed. */
+  loyaltyPointValue: number
+  loyaltyMinRedeem: number
+  /** Points can pay for at most this share of an order. */
+  loyaltyMaxRedeemPercent: number
+  /** Tiers by lifetime spend; the multiplier scales points earned. Sorted by minSpend. */
+  loyaltyTiers: Array<{ name: string; minSpend: number; multiplier: number }>
 }
 
 export type PaymentMethod = { id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other'; enabled: boolean }
@@ -106,6 +116,16 @@ export const DEFAULT_SETTINGS: Settings = {
   allowNegativeStock: false,
   autoSoldOut: true,
   expiryWarningDays: 3,
+  loyaltyEnabled: true,
+  loyaltyEarnPer: 1000,
+  loyaltyPointValue: 25,
+  loyaltyMinRedeem: 100,
+  loyaltyMaxRedeemPercent: 50,
+  loyaltyTiers: [
+    { name: 'Member', minSpend: 0, multiplier: 1 },
+    { name: 'Silver', minSpend: 500000, multiplier: 1.25 },
+    { name: 'Gold', minSpend: 2000000, multiplier: 1.5 },
+  ],
 }
 
 type SeedItem = { name: string; desc: string; price: number; image: string; badge: string; spicy: boolean }

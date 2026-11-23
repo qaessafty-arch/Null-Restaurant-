@@ -9,6 +9,7 @@ import { orderTotals } from '../money'
 import { paidFor } from './payments'
 import { notify } from './notify'
 import { checkCart, consumeForOrder, reverseForOrder } from './inventory'
+import { returnRedeemed } from './customers'
 import { randomCode, randomToken, safeEqual, sha256 } from './security'
 
 // ---------------------------------------------------------------- statuses
@@ -374,6 +375,7 @@ export function transition(
     // Stock leaves the shelf when the order goes to the kitchen; cancelling before cooking puts it back.
     if (['confirmed', 'preparing', 'ready', 'served'].includes(to)) consumeForOrder(o.id, actor.staff?.id ?? null)
     if ((to === 'cancelled' || to === 'rejected') && o.status === 'confirmed') reverseForOrder(o.id, actor.staff?.id ?? null)
+    if (to === 'cancelled' || to === 'rejected') returnRedeemed(o.id, actor.staff?.id ?? null)
     if (FINAL.includes(to) && o.table_id) closeTableIfIdle(o.table_id, o.id)
 
     const label = orderNo(o.number)

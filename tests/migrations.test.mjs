@@ -99,3 +99,25 @@ test('migrating twice is a no-op', () => {
   migrate(c)
   assert.equal(c.prepare('PRAGMA user_version').get().user_version, SCHEMA_VERSION)
 })
+
+test('customers with the same phone written differently are merged, keeping their history', () => {
+  const c = new DatabaseSync(freshFile())
+  c.exec('PRAGMA foreign_keys = ON')
+  migrate(c, 7)
+  c.exec(`
+    INSERT INTO customers (id, name, phone, email, marketing_consent) VALUES (1, 'Shilan', '0750 123 4567', '', 0), (2, 'Shilan A.', '+964 750 123 4567', 's@example.com', 1), (3, 'Dara', '07709998877', '', 0);
+    INSERT INTO reservations (public_id, code, manage_token_hash, customer_id, name, phone, party_size, starts_at, ends_at, status, idempotency_key)
+      VALUES ('r1', 'AAAAAA', 'h1', 1, 'Shilan', '0750 123 4567', 2, '2030-01-01 18:00:00', '2030-01-01 19:30:00', 'confirmed', 'k1'),
+             ('r2', 'BBBBBB', 'h2', 2, 'Shilan A.', '+964 750 123 4567', 4, '2030-02-01 18:00:00', '2030-02-01 19:30:00', 'confirmed', 'k2');
+  `)
+  migrate(c)
+  const rows = c.prepare('SELECT id, name, phone, email, marketing_consent FROM customers ORDER BY id').all()
+  assert.equal(rows.length, 2, 'the two spellings became one customer')
+  assert.equal(rows[0].id, 1, 'the oldest record is kept')
+  assert.equal(rows[0].phone, '07501234567')
+  assert.equal(rows[0].email, 's@example.com', 'details from the duplicate are kept')
+  assert.equal(rows[0].marketing_consent, 1)
+  assert.equal(rows[1].phone, '07709998877')
+  assert.deepEqual(c.prepare('SELECT customer_id FROM reservations ORDER BY id').all().map((r) => r.customer_id), [1, 1], 'both bookings point at the kept record')
+  assert.deepEqual(c.prepare('PRAGMA foreign_key_check').all(), [])
+})

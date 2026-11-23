@@ -7,6 +7,7 @@ import { getSettings } from './settings'
 import { randomToken } from './security'
 import { can } from '../permissions'
 import { isCurrency, orderTotals, toBase, type Currency } from '../money'
+import { syncLoyalty } from './customers'
 
 /**
  * Payments. The only way an order becomes paid is a completed payment row allocated to it.
@@ -22,6 +23,7 @@ type OrderMoney = {
   id: number; public_id: string; number: number; type: string; table_id: number | null; table_number: string; status: string
   subtotal: number; discount: number; discount_reason: string; tax: number; service_charge: number; total: number
   payment_status: string; tax_rate: number; service_rate: number; customer_name: string; created_at: string
+  loyalty_discount: number; loyalty_points_used: number; customer_id: number | null
 }
 
 /** Net amount paid per order (payments minus refunds, completed rows only). */
@@ -49,12 +51,14 @@ export function refreshPaymentStatus(orderId: number) {
     : hasRefunds(orderId) ? 'refunded'
     : 'unpaid'
   run(`UPDATE orders SET payment_status = ?, updated_at = datetime('now') WHERE id = ?`, status, orderId)
+  syncLoyalty(orderId) // points follow payment: earned when fully paid, taken back if refunded
 }
 
 function view(o: OrderMoney, paid: number) {
   return {
     id: o.public_id, number: o.number, label: `ORD-${o.number}`, type: o.type, tableNumber: o.table_number, status: o.status,
-    customerName: o.customer_name, subtotal: o.subtotal, discount: o.discount, discountReason: o.discount_reason,
+    customerName: o.customer_name, customerId: o.customer_id, subtotal: o.subtotal, discount: o.discount, discountReason: o.discount_reason,
+    loyaltyDiscount: o.loyalty_discount, loyaltyPoints: o.loyalty_points_used,
     tax: o.tax, serviceCharge: o.service_charge, total: o.total, paid, due: Math.max(0, o.total - paid),
     paymentStatus: o.payment_status, createdAt: iso(o.created_at),
     items: all<{ name: string; quantity: number; line_total: number; options: string | null }>(
@@ -68,10 +72,10 @@ function view(o: OrderMoney, paid: number) {
 function summarise(orders: OrderMoney[]) {
   const paid = paidFor(orders.map((o) => o.id))
   const list = orders.map((o) => view(o, paid.get(o.id) ?? 0))
-  const sum = (k: 'subtotal' | 'discount' | 'tax' | 'serviceCharge' | 'total' | 'paid' | 'due') => list.reduce((a, o) => a + o[k], 0)
+  const sum = (k: 'subtotal' | 'discount' | 'loyaltyDiscount' | 'tax' | 'serviceCharge' | 'total' | 'paid' | 'due') => list.reduce((a, o) => a + o[k], 0)
   return {
     orders: list,
-    subtotal: sum('subtotal'), discount: sum('discount'), tax: sum('tax'), serviceCharge: sum('serviceCharge'),
+    subtotal: sum('subtotal'), discount: sum('discount'), loyaltyDiscount: sum('loyaltyDiscount'), tax: sum('tax'), serviceCharge: sum('serviceCharge'),
     total: sum('total'), paid: sum('paid'), due: sum('due'),
   }
 }
@@ -330,7 +334,7 @@ export function applyDiscount(staff: Staff, orderPublicId: string, input: { kind
     const pct = o.subtotal ? (discount * 100) / o.subtotal : 0
     if (!can(staff.role, 'orders.override') && pct > s.maxCashierDiscountPercent + 1e-9)
       throw new ApiError(403, `Discounts above ${s.maxCashierDiscountPercent}% need a manager`, 'discount_limit')
-    const t = orderTotals(o.subtotal, discount, o.tax_rate, o.service_rate)
+    const t = orderTotals(o.subtotal, discount + o.loyalty_discount, o.tax_rate, o.service_rate)
     const paid = paidFor([o.id]).get(o.id) ?? 0
     if (t.total < paid) throw new ApiError(409, 'The discount would make the order cost less than what was already paid. Refund first.', 'below_paid')
     run(`UPDATE orders SET discount = ?, discount_reason = ?, tax = ?, service_charge = ?, total = ?, updated_at = datetime('now') WHERE id = ?`,

@@ -630,6 +630,80 @@ CREATE INDEX idx_expenses_day ON expenses(spent_on);
 `)
     },
   },
+  {
+    // Stage 9. Loyalty ledger, guest feedback, customer source and anonymisation; and one spelling per
+    // phone number (duplicates created by different spellings are merged into the oldest record).
+    version: 8,
+    up: (c) => {
+      c.exec(`
+CREATE TABLE loyalty_transactions (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('earn','redeem','reverse','return','adjust')),
+  points INTEGER NOT NULL CHECK (points != 0),
+  balance_after INTEGER NOT NULL CHECK (balance_after >= 0),
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  staff_id INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_loyalty_customer ON loyalty_transactions(customer_id, id);
+
+-- Points used as a discount on an order, and points earned once it was fully paid.
+ALTER TABLE orders ADD COLUMN loyalty_points_used INTEGER NOT NULL DEFAULT 0 CHECK (loyalty_points_used >= 0);
+ALTER TABLE orders ADD COLUMN loyalty_discount INTEGER NOT NULL DEFAULT 0 CHECK (loyalty_discount >= 0);
+ALTER TABLE orders ADD COLUMN loyalty_points_earned INTEGER NOT NULL DEFAULT 0 CHECK (loyalty_points_earned >= 0);
+
+ALTER TABLE customers ADD COLUMN source TEXT NOT NULL DEFAULT 'reservation';
+ALTER TABLE customers ADD COLUMN forgotten_at TEXT;
+
+CREATE TABLE feedback (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER UNIQUE REFERENCES orders(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL CHECK (source IN ('order','web')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','published','hidden')),
+  reply TEXT NOT NULL DEFAULT '',
+  handled_by INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_feedback_status ON feedback(status, id);
+`)
+      // Frozen copy of the phone rule at the time of this migration (lib/phone.ts may evolve).
+      const norm = (input: string): string | null => {
+        let s = String(input).trim()
+        const plus = s.startsWith('+')
+        s = s.replace(/\D/g, '')
+        if (!plus && s.startsWith('00')) s = s.slice(2)
+        else if (!plus && s.startsWith('0')) return /^0\d{6,14}$/.test(s) ? s : null
+        if (s.startsWith('964')) { const l = `0${s.slice(3).replace(/^0/, '')}`; return /^0\d{9,11}$/.test(l) ? l : null }
+        if (!plus && !/^\d{8,15}$/.test(s)) return null
+        return /^\d{7,15}$/.test(s) ? `+${s}` : null
+      }
+      const rows = c.prepare('SELECT id, phone, email, birthday, notes, marketing_consent, consent_at FROM customers WHERE phone IS NOT NULL ORDER BY id').all() as
+        Array<{ id: number; phone: string; email: string; birthday: string | null; notes: string; marketing_consent: number; consent_at: string | null }>
+      const keep = new Map<string, (typeof rows)[number]>()
+      for (const r of rows) {
+        const p = norm(r.phone) ?? r.phone
+        const first = keep.get(p)
+        if (!first) {
+          keep.set(p, r)
+          if (p !== r.phone) c.prepare('UPDATE customers SET phone = NULL WHERE id = ?').run(r.id) // free the slot, set below
+          continue
+        }
+        // Same person under another spelling: move everything to the oldest record, then remove this one.
+        for (const t of ['reservations', 'orders', 'payments']) c.prepare(`UPDATE ${t} SET customer_id = ? WHERE customer_id = ?`).run(first.id, r.id)
+        c.prepare(`UPDATE customers SET email = CASE WHEN email = '' THEN ? ELSE email END, birthday = COALESCE(birthday, ?),
+          notes = TRIM(notes || ' ' || ?), marketing_consent = MAX(marketing_consent, ?), consent_at = COALESCE(consent_at, ?) WHERE id = ?`)
+          .run(r.email, r.birthday, r.notes, r.marketing_consent, r.consent_at, first.id)
+        c.prepare('DELETE FROM customers WHERE id = ?').run(r.id)
+      }
+      for (const [p, r] of keep) c.prepare('UPDATE customers SET phone = ? WHERE id = ?').run(p, r.id)
+    },
+  },
 ]
 
 /**
@@ -643,10 +717,11 @@ const MIGRATIONS: Migration[] = [
 ]
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version
 
-export function migrate(conn: DatabaseSync) {
+/** Runs pending migrations (up to `upTo`, for tests that need an older schema). */
+export function migrate(conn: DatabaseSync, upTo = Infinity) {
   const current = (conn.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
   for (const m of MIGRATIONS) {
-    if (m.version <= current) continue
+    if (m.version <= current || m.version > upTo) continue
     if (m.rebuild) conn.exec('PRAGMA foreign_keys = OFF')
     conn.exec('BEGIN IMMEDIATE')
     try {

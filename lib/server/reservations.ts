@@ -8,6 +8,8 @@ import { getSettings } from './settings'
 import { notify } from './orders'
 import { randomToken, sha256 } from './security'
 import { fromSql, hhmm, localDate, localToUtc, openingWindow, toSql } from '../time'
+import { normalizePhone } from '../phone'
+import { findOrCreate } from './customers'
 
 /**
  * Reservations. A booking holds one table for [start, start + duration); two bookings on the same
@@ -141,21 +143,13 @@ function newCode() {
   throw new ApiError(503, 'Please try again', 'busy')
 }
 
-function upsertCustomer(name: string, phone: string, email: string) {
-  const c = get<{ id: number; email: string }>('SELECT id, email FROM customers WHERE phone = ?', phone)
-  if (c) {
-    if (!c.email && email) run(`UPDATE customers SET email = ?, updated_at = datetime('now') WHERE id = ?`, email, c.id)
-    return c.id
-  }
-  return Number(run('INSERT INTO customers (name, phone, email) VALUES (?,?,?)', name, phone, email).lastInsertRowid)
-}
 
 function validated(input: ReservationInput, staff: Staff | null) {
   const s = getSettings()
   const name = clean(input.name, 80)
   if (name.length < 2) throw new ApiError(400, 'Enter a name for the booking', 'invalid_name')
-  const phone = clean(input.phone, 30).replace(/[\s-]/g, '')
-  if (!/^\+?\d{7,15}$/.test(phone)) throw new ApiError(400, 'Enter a phone number we can reach you on', 'invalid_phone')
+  const phone = normalizePhone(clean(input.phone, 30))
+  if (!phone) throw new ApiError(400, 'Enter a phone number we can reach you on', 'invalid_phone')
   const email = clean(input.email, 120)
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(400, 'Check the email address', 'invalid_email')
   const party = Number(input.partySize)
@@ -201,7 +195,7 @@ export function createReservation(input: ReservationInput, staff: Staff | null) 
     if (!tableId && !staff) throw new ApiError(409, 'Sorry, that time just filled up. Please pick another.', 'no_availability')
     const status: ResStatus = staff ? (tableId ? 'confirmed' : 'pending') : s.reservationAutoConfirm ? 'confirmed' : 'pending'
 
-    const customerId = upsertCustomer(v.name, v.phone, v.email)
+    const customerId = findOrCreate(v.name, v.phone, 'reservation', v.email)
     const r = run(
       `INSERT INTO reservations (public_id, code, manage_token_hash, customer_id, name, phone, email, party_size, starts_at, ends_at, table_id,
          section_pref, status, occasion, requests, notes, source, created_by, idempotency_key)

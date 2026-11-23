@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
+import fs from 'node:fs'
+import path from 'node:path'
 
 export const BASE = process.env.BASE || 'http://localhost:3100'
 export const ADMIN = { username: 'admin', password: process.env.ADMIN_PASSWORD || 'Admin#12345' }
@@ -40,10 +42,24 @@ export async function login(c, creds) {
   return r.data.staff
 }
 
-/** Signs the administrator in once per file. */
+/**
+ * The administrator's session, shared by every test file (saved next to the throwaway database).
+ * Logging in again in each file would trip the real per-user login throttle, which is the point of it.
+ */
 export async function adminClient() {
   const c = client()
+  const file = path.join(path.dirname(process.env.DATABASE_PATH), 'admin-cookie.txt')
+  try {
+    const saved = fs.readFileSync(file, 'utf8').trim()
+    const [k, v] = saved.split('=')
+    c.jar.set(k, saved.slice(k.length + 1))
+    const me = await c.api('GET', '/api/staff/me')
+    if (me.data?.staff?.role === 'admin' && v) return c
+    c.jar.clear()
+  } catch { /* first file: log in below */ }
   await login(c, ADMIN)
+  const [[k, v]] = [...c.jar]
+  fs.writeFileSync(file, `${k}=${v}`)
   return c
 }
 

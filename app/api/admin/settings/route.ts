@@ -86,6 +86,18 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
   allowNegativeStock: (v) => bool(v, 'negative stock'),
   autoSoldOut: (v) => bool(v, 'automatic sold out'),
   expiryWarningDays: (v) => num(v, 'expiry warning', 0, 60),
+  loyaltyEnabled: (v) => bool(v, 'loyalty'),
+  loyaltyEarnPer: (v) => num(v, 'spend per point', 1, 10_000_000),
+  loyaltyPointValue: (v) => num(v, 'point value', 0, 1_000_000),
+  loyaltyMinRedeem: (v) => num(v, 'minimum points to redeem', 1, 1_000_000),
+  loyaltyMaxRedeemPercent: (v) => num(v, 'share of a bill points can pay', 1, 100),
+  loyaltyTiers: (v) => {
+    if (!Array.isArray(v) || !v.length || v.length > 6) throw new ApiError(400, 'Provide 1 to 6 tiers', 'invalid')
+    const tiers = v.map((t) => ({ name: str(t?.name, 'tier name', { required: true, max: 30 }), minSpend: num(t?.minSpend, 'tier spend', 0, 1e12), multiplier: num(t?.multiplier, 'tier multiplier', 0.1, 10) }))
+      .sort((a, b) => a.minSpend - b.minSpend)
+    if (tiers[0].minSpend !== 0) throw new ApiError(400, 'The first tier must start at 0', 'invalid')
+    return tiers
+  },
 }
 
 export const PUT = route(async (req) => {
