@@ -1,0 +1,56 @@
+/* Inventory (admin). Built on tokens.css; reuses the POS table and tab styles. */
+.inv-alerts { display: grid; gap: var(--s-2); margin-bottom: var(--s-3); }
+.inv-alerts .ui-alert { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inv-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.inv-bar .pos-search { flex: 1; min-width: 220px; margin: 0; }
+.inv-value { white-space: nowrap; } .inv-value b { color: var(--text); }
+.inv-empty { display: grid; justify-items: start; gap: var(--s-2); padding: var(--s-6); }
+.inv-empty p { margin: 0; max-width: 560px; }
+.inv-table td { vertical-align: middle; }
+.inv-table .ui-pill { margin-inline-start: 6px; }
+.inv-name { display: grid; gap: 2px; padding: 0; border: 0; background: none; color: var(--text); text-align: start; }
+.inv-name small { color: var(--text-3); font-size: 12px; }
+.inv-name:hover b { color: var(--accent); }
+.inv-check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.inv-recipes { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.inv-dishes { position: sticky; top: 72px; max-height: calc(100dvh - 100px); overflow-y: auto; padding: var(--s-2); }
+.inv-dishes h4 { margin: var(--s-3) var(--s-2) var(--s-1); color: var(--text-3); font: 700 11px var(--font-ui); letter-spacing: 1px; text-transform: uppercase; }
+.inv-dishes button { display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--r-sm); background: none; color: var(--text); text-align: start; font-size: 14px; }
+.inv-dishes button[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.inv-dishes small { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.inv-editor { padding: var(--s-5); display: grid; gap: var(--s-3); }
+.inv-editor h4 { margin: var(--s-3) 0 0; font-size: 14px; }
+.inv-editor-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-3); }
+.inv-editor-head h3 { margin: 0; font: 26px/1 var(--font-display); text-transform: uppercase; letter-spacing: .5px; }
+.inv-foodcost { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.inv-foodcost b { font-size: 24px; }
+.inv-recipe-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 110px 40px; gap: var(--s-2); align-items: center; }
+.inv-qty { display: flex; align-items: center; gap: 6px; } .inv-qty span { color: var(--text-3); font-size: 13px; min-width: 26px; }
+.inv-qty .ui-input { font-variant-numeric: tabular-nums; }
+.inv-cost { text-align: end; color: var(--text-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.inv-opt { padding: var(--s-2) var(--s-3); border: 1px dashed var(--border); border-radius: var(--r-md); display: grid; gap: var(--s-2); }
+.inv-opt-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.inv-save { display: flex; justify-content: flex-end; }
+.inv-pos { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--s-3); }
+.inv-po { padding: var(--s-4); display: grid; gap: var(--s-3); }
+.inv-po header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.inv-po-total { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
+.inv-po ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.inv-po li { display: grid; grid-template-columns: 1fr auto auto; gap: var(--s-3); }
+.inv-po li span:last-child { min-width: 90px; text-align: end; font-variant-numeric: tabular-nums; }
+.inv-po small { color: var(--success); }
+.inv-po footer { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.inv-receive-row { display: grid; grid-template-columns: minmax(0, 1fr) 140px 130px 150px; gap: var(--s-2); align-items: center; }
+.inv-receive-row > span { display: grid; } .inv-receive-row small { color: var(--text-3); font-size: 12px; }
+.inv-suppliers { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-3); }
+.inv-supplier { display: grid; gap: 4px; padding: var(--s-4); text-align: start; color: var(--text); }
+.inv-supplier.dim { opacity: .55; }
+@media (max-width: 860px) {
+  .inv-recipes { grid-template-columns: 1fr; }
+  .inv-dishes { position: static; max-height: 240px; }
+  .inv-recipe-row, .inv-receive-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* the admin shell styles every input; keep room for the search icon */
+.ad-main .pos-search input.ui-input { padding-inline-start: 42px; }
+.inv-add-opt { max-width: 420px; }

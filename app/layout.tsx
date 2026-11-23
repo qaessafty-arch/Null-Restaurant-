@@ -7,6 +7,7 @@ import './pos.css'
 import './kds.css'
 import './floor.css'
 import './public.css'
+import './inventory.css'
 
 export const metadata: Metadata = {
   title: "Smashed Burger Erbil | Best Smash Burgers in Erbil, Iraq",

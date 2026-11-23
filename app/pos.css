@@ -106,7 +106,8 @@
 .pos-table tr.voided td:last-child, .pos-table tr.voided td:nth-child(3) { text-decoration: none; }
 .pos-table tr.refund td { color: var(--danger); }
 .pos-table .ui-pill { margin-inline-start: 6px; }
-.pos-row-actions { display: flex; justify-content: flex-end; gap: 2px; white-space: nowrap; }
+.pos-row-actions { text-align: end; white-space: nowrap; } /* stays a table cell; buttons are inline-flex */
+.pos-row-actions > * + * { margin-inline-start: 2px; }
 
 /* ---- receipt (80mm thermal) ---- */
 .receipt { width: 72mm; margin: 0 auto; padding: 4mm 0; color: #000; background: #fff; font: 12px/1.4 ui-monospace, 'Courier New', monospace; }

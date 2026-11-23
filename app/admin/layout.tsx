@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { BarChart3, ClipboardList, Grid2x2, History, Settings, UtensilsCrossed, Users, ChefHat, ConciergeBell, LayoutDashboard, CalendarDays, ShoppingBag } from 'lucide-react'
+import { BarChart3, ClipboardList, Grid2x2, History, Settings, UtensilsCrossed, Users, ChefHat, ConciergeBell, LayoutDashboard, CalendarDays, ShoppingBag, Boxes } from 'lucide-react'
 import { StaffShell, useMe } from '@/components/staff/shell'
 import { can, homeFor, type Permission } from '@/lib/permissions'
 
@@ -13,6 +13,7 @@ const NAV: Array<{ href: string; label: string; icon: typeof BarChart3; perm: Pe
   { href: '/admin/reservations', label: 'Reservations', icon: CalendarDays, perm: 'reservations.manage' },
   { href: '/admin/orders', label: 'Orders', icon: ClipboardList, perm: 'orders.view' },
   { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, perm: 'menu.manage' },
+  { href: '/admin/inventory', label: 'Inventory', icon: Boxes, perm: 'inventory.manage' },
   { href: '/admin/tables', label: 'Tables & QR', icon: Grid2x2, perm: 'tables.manage' },
   { href: '/admin/staff', label: 'Staff', icon: Users, perm: 'staff.manage' },
   { href: '/admin/settings', label: 'Settings', icon: Settings, perm: 'settings.manage' },

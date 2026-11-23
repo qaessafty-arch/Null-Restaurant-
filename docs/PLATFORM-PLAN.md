@@ -101,7 +101,7 @@ features extend them; nothing working is replaced.
 | 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | Done |
 | 5 | Kitchen stations, item routing, timers, delay warnings | Done |
 | 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | Done |
-| 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | |
+| 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | Done (transfers deferred, see notes) |
 | 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | |
 | 9 | CRM: customers, history, loyalty, consent | |
 | 10 | Customer site: reservations page, offers, gallery, order history; staff/admin RTL | |
@@ -194,3 +194,34 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
 - Bugs found in browser testing and fixed: booking times on the floor were shown in the browser's
   timezone (now formatted on the server in the restaurant's); "now ago" in several staff screens.
 - Tests: 66/66 (adds `tests/time.test.mjs`, `tests/reservations.test.mjs`).
+
+### Stage 7 (done)
+
+- **Model** (migration 6): suppliers, ingredients, recipe lines (per dish, and per option: an option
+  can add or remove an ingredient), purchase orders with lines, expiry batches, stock movements.
+  Quantities are integer thousandths of the ingredient's unit (no float drift); unit cost is a decimal
+  (IQD per gram is often fractional) and is a weighted average updated on every receipt.
+- **One way to change stock** (`move()` in `lib/server/inventory.ts`): writes a movement row (kind,
+  reason, person, order or PO, unit cost at the time, balance after), draws expiry batches earliest
+  first, raises a low-stock alert once per crossing of the minimum, refuses to go below zero unless
+  `allowNegativeStock` is on.
+- **Deduction policy**: stock is taken when an order reaches the kitchen (POS orders at once; QR orders
+  when confirmed, or at creation when verification is off), exactly once per order. Cancelling while
+  "sent to kitchen" returns it; once cooking has started it stays used. Guests and the POS are warned
+  at the quote if the kitchen cannot make the cart. Dishes without a recipe are not tracked.
+- **Automatic sold out** (`autoSoldOut`): a dish whose recipe cannot be made is marked sold out and
+  returns when restocked. A dish someone marked sold out by hand is never switched back on.
+- **Purchase orders**: draft -> ordered -> partial / received, or cancelled. Receiving books what
+  actually arrived at the invoiced cost, with a use-by date for tracked items. Creating one for a
+  supplier pre-fills their low items.
+- **Screens**: Admin > Inventory with Stock (filters, value, receive / waste / count / adjust),
+  Recipes (food cost % against the menu price), Purchases, Suppliers, History; low-stock and
+  use-soon banners. The inventory role lands here.
+- **Not built**: stock transfers between locations. They need storage locations or branches, which the
+  platform does not model yet; adding them means stock per location on every movement. Recorded here
+  rather than faked.
+- No ingredients or stock are seeded: inventing stock levels would be fake data. The restaurant enters
+  its own.
+- Bugs found in browser testing and fixed: table action cells broke the row layout (POS transactions
+  too); the admin input style hid the search icon; duplicated PO labels in the history.
+- Tests: 77/77 (adds `tests/inventory.test.mjs`, TEST 8).
