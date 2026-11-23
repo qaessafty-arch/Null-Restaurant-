@@ -68,7 +68,59 @@ function Display() {
   const cooking = useMemo(() => (board?.orders ?? []).filter((o) => o.status !== 'ready' && o.lines.some((l) => l.status !== 'ready')), [board])
   const waiting = useMemo(() => (board?.orders ?? []).filter((o) => o.status !== 'ready' && o.lines.every((l) => l.status === 'ready')), [board])
   const ready = useMemo(() => (board?.orders ?? []).filter((o) => o.status === 'ready'), [board])
+  // Lanes are only a view of the same tickets: late first claims a ticket, then whether any line has started.
+  const delayed = cooking.filter((o) => o.delayed)
+  const fresh = cooking.filter((o) => !o.delayed && o.lines.every((l) => l.status === 'new'))
+  const preparing = cooking.filter((o) => !o.delayed && !o.lines.every((l) => l.status === 'new'))
   const stationName = station === 'all' ? 'All stations' : board?.stations.find((s) => s.id === station)?.name ?? 'Station'
+
+  const ticket = (o: KTicket) => {
+    const late = o.delayed
+    const warn = !late && o.ageMinutes >= o.targetMinutes * 0.75
+    const anyNew = o.lines.some((l) => l.status === 'new')
+    const k = (x: string) => `${o.id}:${x}`
+    return (
+      <article key={o.id} className={`kds-ticket ${late ? 'late' : warn ? 'warn' : ''} ${o.rush ? 'rush' : ''}`} aria-label={`${o.label} ${o.tableNumber ? `table ${o.tableNumber}` : o.type}`}>
+        <header>
+          <div className="kds-where">
+            {o.tableNumber ? <><small>Table</small><b>{o.tableNumber}</b></> : <><small>{o.type.replace('_', '-')}</small><b className="kds-name">{o.customerName || '—'}</b></>}
+          </div>
+          <div className="kds-meta">
+            <span className="kds-label">{o.label}</span>
+            <span className="kds-timer" aria-label={`Waiting ${o.ageMinutes} minutes`}>{timer(o.confirmedAt, now)}</span>
+          </div>
+          {o.rush && <span className="kds-flag rush"><Zap size={14} /> Rush</span>}
+          {late && <span className="kds-flag late"><AlertTriangle size={14} /> Late</span>}
+        </header>
+        <ul>
+          {o.lines.map((l) => (
+            <li key={l.id}>
+              <button type="button" className={`kds-line s-${l.status}`} disabled={busy === k(String(l.id))}
+                onClick={() => act(k(String(l.id)), { orderId: o.id, lineIds: [l.id], status: NEXT[l.status] })}
+                aria-label={`${l.quantity} ${l.name}, ${l.status}. Tap to mark ${NEXT[l.status]}`}>
+                <span className="kds-qty">{l.quantity}</span>
+                <span className="kds-item">
+                  <b>{l.name}</b>
+                  {station === 'all' && l.station && <small className="kds-st" style={{ color: l.station.color }}>{l.station.name}</small>}
+                  {l.options.length > 0 && <span className="kds-opts">{l.options.map((x, i) => <em key={i} className={/^no\b|without/i.test(x) ? 'no' : ''}>{x}</em>)}</span>}
+                  {l.instructions && <span className="kds-instr"><MessageSquare size={14} /> {l.instructions}</span>}
+                  {l.allergens.length > 0 && <span className="kds-allergen"><AlertTriangle size={14} /> {l.allergens.join(', ')}</span>}
+                </span>
+                <span className="kds-state" aria-hidden>{l.status === 'ready' ? <Check size={20} /> : l.status === 'preparing' ? <Flame size={18} /> : null}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {o.note && <p className="kds-note"><MessageSquare size={15} /> {o.note}</p>}
+        {o.otherStationsPending.length > 0 && <p className="kds-others">Also waiting on: {o.otherStationsPending.join(', ')}</p>}
+        <footer>
+          {anyNew
+            ? <button type="button" className="kds-btn start" disabled={!!busy} onClick={() => act(k('start'), { orderId: o.id, lineIds: o.lines.filter((l) => l.status === 'new').map((l) => l.id), status: 'preparing' })}><Flame size={20} /> Start</button>
+            : <button type="button" className="kds-btn done" disabled={!!busy} onClick={() => act(k('done'), { orderId: o.id, lineIds: o.lines.map((l) => l.id), status: 'ready' })}><Check size={20} /> {station === 'all' ? 'Order ready' : 'Done'}</button>}
+        </footer>
+      </article>
+    )
+  }
 
   return (
     <main className="kds themed">
@@ -96,68 +148,34 @@ function Display() {
         <div className="kds-idle"><ChefHat size={40} /><b>{stationName}: nothing to cook</b><span>New tickets appear here with a sound.</span></div>
       )}
 
-      <div className="kds-rail">
-        {cooking.map((o) => {
-          const late = o.delayed
-          const warn = !late && o.ageMinutes >= o.targetMinutes * 0.75
-          const anyNew = o.lines.some((l) => l.status === 'new')
-          const k = (x: string) => `${o.id}:${x}`
-          return (
-            <article key={o.id} className={`kds-ticket ${late ? 'late' : warn ? 'warn' : ''} ${o.rush ? 'rush' : ''}`} aria-label={`${o.label} ${o.tableNumber ? `table ${o.tableNumber}` : o.type}`}>
-              <header>
-                <div className="kds-where">
-                  {o.tableNumber ? <><small>Table</small><b>{o.tableNumber}</b></> : <><small>{o.type.replace('_', '-')}</small><b className="kds-name">{o.customerName || '—'}</b></>}
-                </div>
-                <div className="kds-meta">
-                  <span className="kds-label">{o.label}</span>
-                  <span className="kds-timer" aria-label={`Waiting ${o.ageMinutes} minutes`}>{timer(o.confirmedAt, now)}</span>
-                </div>
-                {o.rush && <span className="kds-flag rush"><Zap size={14} /> Rush</span>}
-                {late && <span className="kds-flag late"><AlertTriangle size={14} /> Late</span>}
-              </header>
-              <ul>
-                {o.lines.map((l) => (
-                  <li key={l.id}>
-                    <button type="button" className={`kds-line s-${l.status}`} disabled={busy === k(String(l.id))}
-                      onClick={() => act(k(String(l.id)), { orderId: o.id, lineIds: [l.id], status: NEXT[l.status] })}
-                      aria-label={`${l.quantity} ${l.name}, ${l.status}. Tap to mark ${NEXT[l.status]}`}>
-                      <span className="kds-qty">{l.quantity}</span>
-                      <span className="kds-item">
-                        <b>{l.name}</b>
-                        {station === 'all' && l.station && <small className="kds-st" style={{ color: l.station.color }}>{l.station.name}</small>}
-                        {l.options.length > 0 && <span className="kds-opts">{l.options.map((x, i) => <em key={i} className={/^no\b|without/i.test(x) ? 'no' : ''}>{x}</em>)}</span>}
-                        {l.instructions && <span className="kds-instr"><MessageSquare size={14} /> {l.instructions}</span>}
-                        {l.allergens.length > 0 && <span className="kds-allergen"><AlertTriangle size={14} /> {l.allergens.join(', ')}</span>}
-                      </span>
-                      <span className="kds-state" aria-hidden>{l.status === 'ready' ? <Check size={20} /> : l.status === 'preparing' ? <Flame size={18} /> : null}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {o.note && <p className="kds-note"><MessageSquare size={15} /> {o.note}</p>}
-              {o.otherStationsPending.length > 0 && <p className="kds-others">Also waiting on: {o.otherStationsPending.join(', ')}</p>}
-              <footer>
-                {anyNew
-                  ? <button type="button" className="kds-btn start" disabled={!!busy} onClick={() => act(k('start'), { orderId: o.id, lineIds: o.lines.filter((l) => l.status === 'new').map((l) => l.id), status: 'preparing' })}><Flame size={20} /> Start</button>
-                  : <button type="button" className="kds-btn done" disabled={!!busy} onClick={() => act(k('done'), { orderId: o.id, lineIds: o.lines.map((l) => l.id), status: 'ready' })}><Check size={20} /> {station === 'all' ? 'Order ready' : 'Done'}</button>}
-              </footer>
-            </article>
-          )
-        })}
-      </div>
-
-      {(waiting.length > 0 || ready.length > 0) && (
-        <section className="kds-pickup" aria-label="Done">
-          <h2>{station === 'all' ? 'Ready for pickup' : 'Done here'}</h2>
-          {[...waiting, ...ready].map((o) => (
-            <span key={o.id} className={`kds-chip ${o.status === 'ready' ? 'ready' : ''}`}>
-              <b>{o.tableNumber ? `T${o.tableNumber}` : o.label}</b>
-              {o.status !== 'ready' && o.otherStationsPending.length > 0 && <small>waiting on {o.otherStationsPending.join(', ')}</small>}
-              {o.status === 'ready' && <small>ready {timer(o.confirmedAt, now)}</small>}
-            </span>
-          ))}
-        </section>
+      {board && (cooking.length > 0 || waiting.length > 0 || ready.length > 0) && (
+        <div className="kds-board">
+          <Lane title="New" tone="new" list={fresh} render={ticket} empty="No new tickets" />
+          <Lane title="Preparing" tone="prep" list={preparing} render={ticket} empty="Nothing on the grill" />
+          <Lane title="Delayed" tone="late" list={delayed} render={ticket} empty={`Nothing over ${board.delayMinutes} min`} />
+          <section className="kds-lane done" aria-label={station === 'all' ? 'Ready for pickup' : 'Done here'}>
+            <h2>{station === 'all' ? 'Ready' : 'Done here'}<i>{waiting.length + ready.length}</i></h2>
+            {waiting.length + ready.length === 0 && <p className="kds-lane-empty">Finished orders wait here for pickup</p>}
+            {[...waiting, ...ready].map((o) => (
+              <div key={o.id} className={`kds-chip ${o.status === 'ready' ? 'ready' : ''}`}>
+                <b>{o.tableNumber ? `Table ${o.tableNumber}` : o.customerName || o.label}</b>
+                <span>{o.label}</span>
+                {o.status !== 'ready' && o.otherStationsPending.length > 0 && <small>Waiting on {o.otherStationsPending.join(', ')}</small>}
+                {o.status === 'ready' && <small>Ready · {timer(o.confirmedAt, now)}</small>}
+              </div>
+            ))}
+          </section>
+        </div>
       )}
     </main>
+  )
+}
+
+function Lane({ title, tone, list, render, empty }: { title: string; tone: string; list: KTicket[]; render: (o: KTicket) => React.ReactNode; empty: string }) {
+  return (
+    <section className={`kds-lane ${tone}`} aria-label={title}>
+      <h2>{title}<i className={list.length ? 'on' : undefined}>{list.length}</i></h2>
+      {list.length === 0 ? <p className="kds-lane-empty">{empty}</p> : list.map(render)}
+    </section>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import QRCode from 'qrcode'
-import { BellRing, ClipboardList, Grid2x2, QrCode, ScanLine } from 'lucide-react'
+import { BellRing, ClipboardList, Grid2x2, QrCode, ScanLine, ShoppingBag } from 'lucide-react'
 import { StaffShell, useLive, useMe } from '@/components/staff/shell'
 import { OrderDetail } from '@/components/staff/order-detail'
 import { VerifyPanel } from '@/components/staff/verify-panel'
@@ -76,7 +76,7 @@ function Board() {
             <div className="st-cards">
               {shown.map((o) => (
                 <button key={o.id} className={`st-card s-${o.status}`} onClick={() => setOpen(o.id)}>
-                  <span className="st-card-table">{o.tableNumber}<small>Table</small></span>
+                  <span className="st-card-table">{o.tableNumber || <ShoppingBag size={22} aria-hidden="true" />}<small>{o.tableNumber ? 'Table' : 'No table'}</small></span>
                   <span className="st-card-main">
                     <b>{o.label}</b>
                     <span className={`st-badge s-${o.status}`}>{STATUS_LABEL[o.status]}</span>

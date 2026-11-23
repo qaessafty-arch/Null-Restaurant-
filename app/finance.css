@@ -9,7 +9,7 @@
 .fin-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-3); margin-bottom: var(--s-4); }
 .fin-tile { display: grid; gap: 4px; padding: var(--s-4); }
 .fin-tile-label { color: var(--text-2); font-size: 13px; font-weight: 600; }
-.fin-tile b { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.1; }
+.fin-tile b { font-size: clamp(21px, 2.4vw, 32px); line-height: 1.1; }
 .fin-tile-meta { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; font-size: 12px; }
 .fin-delta { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; }
 .fin-delta.up { color: var(--success); } .fin-delta.down { color: var(--danger); }
@@ -50,7 +50,7 @@
 .chart-tick { fill: var(--text-3); font: 11px var(--font-ui); font-variant-numeric: tabular-nums; }
 .chart-bar { fill: var(--accent); transition: opacity .12s; }
 .chart-plot:hover .chart-bar:not(.on) { opacity: .45; }
-.chart-tip { position: absolute; top: 0; translate: -50% 0; display: grid; gap: 1px; padding: 6px 10px; border-radius: var(--r-sm); background: var(--chrome); color: var(--on-chrome); font-size: 12px; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-2); }
+.chart-tip { position: absolute; top: 0; translate: -50% 0; display: grid; gap: 1px; padding: 6px 10px; border-radius: var(--r-sm); background: var(--inverse); color: var(--on-inverse); font-size: 12px; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-2); }
 .chart-tip span { font-variant-numeric: tabular-nums; font-weight: 600; }
 .chart-tip small { opacity: .75; }
 .chart-empty { margin: 0; padding: var(--s-6) 0; color: var(--text-3); text-align: center; }

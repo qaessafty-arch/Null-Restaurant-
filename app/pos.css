@@ -2,7 +2,7 @@
 .pos { min-height: calc(100dvh - 60px); padding: var(--s-3) var(--s-4) var(--s-6); font-family: var(--font-ui); }
 .pos-tabs { display: flex; gap: var(--s-1); margin-bottom: var(--s-3); padding: 4px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); width: fit-content; max-width: 100%; overflow-x: auto; }
 .pos-tabs button { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 44px; padding: 0 var(--s-4); border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-2); font: 600 14px var(--font-ui); white-space: nowrap; }
-.pos-tabs button[aria-selected="true"] { background: var(--chrome); color: var(--on-chrome); }
+.pos-tabs button[aria-selected="true"] { background: var(--inverse); color: var(--on-inverse); }
 .pos-tabs i { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 700 11px var(--font-ui); font-style: normal; }
 
 /* ---- new order ---- */
@@ -67,7 +67,7 @@
 .pos-empty-state b { color: var(--text); font-size: 17px; }
 
 .pos-bill-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
-.pos-bill-head h2 { margin: 0; font: 26px/1 var(--font-display); letter-spacing: .5px; text-transform: uppercase; }
+.pos-bill-head h2 { margin: 0; font: 600 26px/1 var(--font-display); letter-spacing: -.02em; }
 .pos-bill-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: var(--s-4); align-items: start; }
 .pos-bill-items, .pos-pay-card { padding: var(--s-4); }
 .pos-bill-order { padding-bottom: var(--s-3); margin-bottom: var(--s-3); border-bottom: 1px dashed var(--border); }
@@ -84,7 +84,7 @@
 .pay-methods button[aria-pressed="true"] { border-color: var(--text); background: var(--text); color: var(--bg); }
 .pay-row { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .pay-row .ui-seg { flex: 1; min-width: 160px; }
-.pay-amount { font: 24px var(--font-display); letter-spacing: .5px; min-height: 56px; font-variant-numeric: tabular-nums; }
+.pay-amount { font: 600 24px var(--font-display); letter-spacing: -.02em; min-height: 56px; font-variant-numeric: tabular-nums; }
 .pay-amount::placeholder { font: 15px var(--font-ui); letter-spacing: 0; color: var(--text-3); }
 .pay-notes { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .pay-change { display: flex; justify-content: space-between; align-items: baseline; padding: var(--s-3) var(--s-4); border-radius: var(--r-md); background: var(--success-soft); color: var(--success); font-weight: 600; }
@@ -111,7 +111,7 @@
 
 /* ---- receipt (80mm thermal) ---- */
 .receipt { width: 72mm; margin: 0 auto; padding: 4mm 0; color: #000; background: #fff; font: 12px/1.4 ui-monospace, 'Courier New', monospace; }
-.receipt h3 { margin: 0 0 4px; text-align: center; font: 18px var(--font-display); letter-spacing: 1px; text-transform: uppercase; }
+.receipt h3 { margin: 0 0 4px; text-align: center; font: 600 18px var(--font-display); letter-spacing: -.02em; }
 .receipt hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
 .rc-center { text-align: center; margin: 2px 0; }
 .rc-strong { font-weight: 700; letter-spacing: 2px; }
@@ -142,7 +142,7 @@
   .pos-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   .pos-send { grid-template-columns: 1fr; }
   .pos-order { padding-bottom: 72px; }
-  .pos-mobile-bar { position: fixed; z-index: 40; inset: auto 12px 12px; display: flex; align-items: center; gap: var(--s-3); min-height: 56px; padding: 0 var(--s-4); border: 0; border-radius: var(--r-lg); background: var(--chrome); color: var(--on-chrome); box-shadow: var(--shadow-3); font: 600 15px var(--font-ui); }
+  .pos-mobile-bar { position: fixed; z-index: 40; inset: auto 12px 12px; display: flex; align-items: center; gap: var(--s-3); min-height: 56px; padding: 0 var(--s-4); border: 0; border-radius: var(--r-lg); background: var(--inverse); color: var(--on-inverse); box-shadow: var(--shadow-3); font: 600 15px var(--font-ui); }
   .pos-mobile-bar b { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 }
 @media (min-width: 761px) { .pos-mobile-bar { display: none; } }

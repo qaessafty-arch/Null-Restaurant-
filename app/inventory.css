@@ -21,7 +21,7 @@
 .inv-editor { padding: var(--s-5); display: grid; gap: var(--s-3); }
 .inv-editor h4 { margin: var(--s-3) 0 0; font-size: 14px; }
 .inv-editor-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-3); }
-.inv-editor-head h3 { margin: 0; font: 26px/1 var(--font-display); text-transform: uppercase; letter-spacing: .5px; }
+.inv-editor-head h3 { margin: 0; font: 600 26px/1 var(--font-display); letter-spacing: -.02em; }
 .inv-foodcost { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .inv-foodcost b { font-size: 24px; }
 .inv-recipe-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 110px 40px; gap: var(--s-2); align-items: center; }

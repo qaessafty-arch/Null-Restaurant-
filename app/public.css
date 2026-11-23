@@ -4,7 +4,7 @@
 .pub-top .languages button { min-height: 36px; }
 .pub-main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: var(--s-6) 0 var(--s-8); }
 .pub-main > .eyebrow { color: var(--highlight); }
-.pub-title { margin: 0 0 var(--s-5); color: #fff; font: clamp(44px, 9vw, 72px)/.95 var(--font-display); letter-spacing: 1px; text-transform: uppercase; }
+.pub-title { margin: 0 0 var(--s-5); color: #fff; font: 600 clamp(44px, 9vw, 72px)/.95 var(--font-display); letter-spacing: -.02em; }
 .pub-card { display: grid; gap: var(--s-5); padding: clamp(18px, 4vw, 32px); border-radius: var(--r-xl); background: var(--surface); box-shadow: var(--shadow-2); }
 .pub-card .pub-title { color: var(--text); font-size: clamp(36px, 7vw, 52px); margin: 0; }
 .pub-step { margin: 0; padding: 0; border: 0; display: grid; gap: var(--s-3); }
@@ -14,7 +14,7 @@
 .pub-party .ui-icon-btn { width: 48px; height: 48px; border-radius: 50%; }
 .pub-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .pub-chips button, .pub-slots button { min-height: 44px; padding: 0 var(--s-4); border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: 600 14px var(--font-ui); }
-.pub-chips button[aria-pressed="true"], .pub-slots button[aria-checked="true"] { background: var(--chrome); border-color: var(--chrome); color: var(--on-chrome); }
+.pub-chips button[aria-pressed="true"], .pub-slots button[aria-checked="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--on-inverse); }
 .pub-chips button:focus-visible, .pub-slots button:focus-visible { outline: none; box-shadow: var(--focus); }
 .pub-other { display: inline-flex; align-items: center; gap: var(--s-2); color: var(--text-2); font-size: 13px; }
 .pub-other input { min-height: 44px; padding: 0 var(--s-3); border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); font: inherit; color: var(--text); }

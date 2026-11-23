@@ -28,7 +28,7 @@
   background: var(--fill); box-shadow: inset 0 0 0 2.5px var(--rim), var(--shadow-1); color: var(--text); transition: transform .12s var(--ease), box-shadow .12s; }
 .floor-table.shape-round { border-radius: 50%; width: calc(56px + var(--seats) * 6px); height: calc(56px + var(--seats) * 6px); }
 .floor-table.shape-rect { width: calc(72px + var(--seats) * 11px); height: 58px; }
-.floor-table b { font: 22px/1 var(--font-display); letter-spacing: .5px; }
+.floor-table b { font: 600 22px/1 var(--font-display); letter-spacing: -.02em; }
 .floor-table small { font-size: 10px; color: var(--text-2); }
 .floor-table:hover { transform: scale(1.04); }
 .floor-table:focus-visible { outline: none; box-shadow: inset 0 0 0 2.5px var(--rim), var(--focus); }
@@ -37,14 +37,14 @@
 .floor-table.dragging { cursor: grabbing; z-index: 5; transform: scale(1.08); box-shadow: inset 0 0 0 2.5px var(--rim), var(--shadow-3); transition: none; }
 .floor-ping { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--surface); animation: floor-ping 1.4s ease-in-out infinite; }
 @keyframes floor-ping { 50% { transform: scale(1.15); } }
-.floor-tag { position: absolute; bottom: -10px; padding: 1px 6px; border-radius: 999px; background: var(--chrome); color: var(--on-chrome); font: 600 10px var(--font-ui); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.floor-tag { position: absolute; bottom: -10px; padding: 1px 6px; border-radius: 999px; background: var(--inverse); color: var(--on-inverse); font: 600 10px var(--font-ui); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .floor-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; }
 
 .floor-drawer-wrap { place-items: stretch end; padding: 0; }
 .floor-drawer { width: min(400px, 100%); height: 100%; overflow-y: auto; padding: var(--s-5); background: var(--surface); color: var(--text); box-shadow: var(--shadow-3); animation: floor-in .2s var(--ease); }
 @keyframes floor-in { from { transform: translateX(24px); opacity: 0; } }
 .floor-drawer header { display: flex; justify-content: space-between; gap: var(--s-3); margin-bottom: var(--s-4); }
-.floor-drawer h2 { margin: 2px 0 6px; font: 30px/1 var(--font-display); letter-spacing: .5px; text-transform: uppercase; }
+.floor-drawer h2 { margin: 2px 0 6px; font: 600 30px/1 var(--font-display); letter-spacing: -.02em; }
 .floor-status { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--fill); box-shadow: inset 0 0 0 1.5px var(--rim); font: 600 12px var(--font-ui); }
 .floor-facts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin: 0 0 var(--s-4); }
 .floor-facts div { padding: var(--s-3); border-radius: var(--r-md); background: var(--surface-2); }
