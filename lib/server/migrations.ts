@@ -440,6 +440,70 @@ UPDATE order_items SET kitchen_status = CASE
 `)
     },
   },
+  {
+    // Stage 6. Sections and a floor plan for tables; manual table states; reservations.
+    version: 5,
+    up: (c) => {
+      c.exec(`
+CREATE TABLE sections (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  sort INTEGER NOT NULL DEFAULT 0
+);
+ALTER TABLE tables ADD COLUMN section_id INTEGER REFERENCES sections(id) ON DELETE SET NULL;
+ALTER TABLE tables ADD COLUMN capacity INTEGER NOT NULL DEFAULT 4 CHECK (capacity BETWEEN 1 AND 40);
+ALTER TABLE tables ADD COLUMN shape TEXT NOT NULL DEFAULT 'square' CHECK (shape IN ('square','round','rect'));
+ALTER TABLE tables ADD COLUMN pos_x REAL;
+ALTER TABLE tables ADD COLUMN pos_y REAL;
+-- Only the states staff set by hand. Everything else (ordering, waiting for food, payment...) is derived.
+ALTER TABLE tables ADD COLUMN manual_state TEXT CHECK (manual_state IN ('seated','cleaning','out_of_service'));
+ALTER TABLE tables ADD COLUMN manual_state_at TEXT;
+
+INSERT INTO sections (name, sort) VALUES ('Indoor', 0), ('Outdoor', 1), ('VIP', 2);
+UPDATE tables SET section_id = (SELECT id FROM sections WHERE name = 'Indoor');
+
+CREATE TABLE reservations (
+  id INTEGER PRIMARY KEY,
+  public_id TEXT NOT NULL UNIQUE,
+  code TEXT NOT NULL UNIQUE,
+  manage_token_hash TEXT NOT NULL UNIQUE,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL DEFAULT '',
+  party_size INTEGER NOT NULL CHECK (party_size BETWEEN 1 AND 100),
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  table_id INTEGER REFERENCES tables(id) ON DELETE SET NULL,
+  section_pref INTEGER REFERENCES sections(id) ON DELETE SET NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending','confirmed','seated','completed','cancelled','no_show')),
+  occasion TEXT NOT NULL DEFAULT '',
+  requests TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'web' CHECK (source IN ('web','phone','walk_in','staff')),
+  cancel_reason TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  CHECK (ends_at > starts_at)
+);
+CREATE INDEX idx_res_table_time ON reservations(table_id, starts_at);
+CREATE INDEX idx_res_time ON reservations(starts_at);
+CREATE INDEX idx_res_phone ON reservations(phone);
+
+CREATE TABLE reservation_history (
+  id INTEGER PRIMARY KEY,
+  reservation_id INTEGER NOT NULL REFERENCES reservations(id) ON DELETE CASCADE,
+  from_status TEXT,
+  to_status TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`)
+    },
+  },
 ]
 
 /**

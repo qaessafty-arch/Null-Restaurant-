@@ -75,6 +75,14 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
   receiptHeader: (v) => str(v, 'receipt header', { max: 300 }),
   receiptFooter: (v) => str(v, 'receipt footer', { max: 300 }),
   kitchenDelayMinutes: (v) => num(v, 'kitchen delay warning', 3, 180),
+  reservationsEnabled: (v) => bool(v, 'reservations'),
+  reservationDurationMinutes: (v) => num(v, 'reservation length', 15, 480),
+  reservationBufferMinutes: (v) => num(v, 'reservation buffer', 0, 120),
+  reservationSlotMinutes: (v) => { const n = num(v, 'slot interval', 5, 120); if (![5, 10, 15, 20, 30, 45, 60, 90, 120].includes(n)) throw new ApiError(400, 'Slot interval must be 5, 10, 15, 20, 30, 45, 60, 90 or 120 minutes', 'invalid'); return n },
+  reservationMaxParty: (v) => num(v, 'largest party', 1, 100),
+  reservationLeadMinutes: (v) => num(v, 'minimum notice', 0, 7 * 24 * 60),
+  reservationMaxDays: (v) => num(v, 'how far ahead', 1, 365),
+  reservationAutoConfirm: (v) => bool(v, 'auto-confirm'),
 }
 
 export const PUT = route(async (req) => {

@@ -31,6 +31,15 @@ export interface Settings {
   receiptFooter: string
   /** An order still cooking after max(its prep estimate, this) minutes is flagged late. */
   kitchenDelayMinutes: number
+  reservationsEnabled: boolean
+  reservationDurationMinutes: number
+  reservationBufferMinutes: number
+  reservationSlotMinutes: number
+  reservationMaxParty: number
+  reservationLeadMinutes: number
+  reservationMaxDays: number
+  /** When a table is free, web bookings are confirmed at once; otherwise they wait for staff. */
+  reservationAutoConfirm: boolean
 }
 
 export type PaymentMethod = { id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other'; enabled: boolean }
@@ -81,6 +90,14 @@ export const DEFAULT_SETTINGS: Settings = {
   receiptHeader: '',
   receiptFooter: 'Thank you for eating with us.',
   kitchenDelayMinutes: 15,
+  reservationsEnabled: true,
+  reservationDurationMinutes: 90,
+  reservationBufferMinutes: 15,
+  reservationSlotMinutes: 30,
+  reservationMaxParty: 12,
+  reservationLeadMinutes: 60,
+  reservationMaxDays: 60,
+  reservationAutoConfirm: true,
 }
 
 type SeedItem = { name: string; desc: string; price: number; image: string; badge: string; spicy: boolean }
