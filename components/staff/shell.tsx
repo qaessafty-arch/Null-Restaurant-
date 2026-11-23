@@ -4,7 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Bell, BellOff, Flame, LogOut } from 'lucide-react'
-import { api, ApiErr, type Me, type Role } from './api'
+import { api, ApiErr, type Me } from './api'
+import { can, type Permission } from '@/lib/permissions'
 
 const MeCtx = createContext<{ me: Me; restaurant: string } | null>(null)
 export const useMe = () => useContext(MeCtx)!
@@ -42,7 +43,8 @@ function beep() {
 
 type Toast = { id: number; title: string; body: string; kind: string }
 
-export function StaffShell({ roles, title, children, wide = false }: { roles: Role[]; title: string; children: React.ReactNode; wide?: boolean }) {
+export function StaffShell({ perm, title, children, wide = false }: { perm: Permission | Permission[]; title: string; children: React.ReactNode; wide?: boolean }) {
+  const perms = Array.isArray(perm) ? perm.join(',') : perm
   const router = useRouter()
   const [me, setMe] = useState<Me | null>(null)
   const [restaurant, setRestaurant] = useState('')
@@ -54,11 +56,11 @@ export function StaffShell({ roles, title, children, wide = false }: { roles: Ro
   useEffect(() => {
     api<{ staff: Me | null; restaurantName: string; soundAlerts: boolean }>('GET', '/api/staff/me').then((d) => {
       if (!d.staff) { router.replace(`/staff/login?next=${encodeURIComponent(location.pathname + location.search)}`); return }
-      if (!roles.includes(d.staff.role)) { router.replace('/staff'); return }
+      if (!perms.split(',').some((p) => can(d.staff!.role, p as Permission))) { router.replace('/staff'); return }
       setMe(d.staff); setRestaurant(d.restaurantName); setSound(d.soundAlerts)
     }).catch(() => router.replace('/staff/login'))
     setAlerts(typeof Notification !== 'undefined' && Notification.permission === 'granted')
-  }, [router, roles])
+  }, [router, perms])
 
   const poll = useCallback(async () => {
     if (!me) return

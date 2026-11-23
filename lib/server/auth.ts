@@ -3,8 +3,9 @@ import { cookies } from 'next/headers'
 import { get, run, all } from './db'
 import { ApiError } from './http'
 import { randomToken, sha256 } from './security'
+import { can, type Permission, type Role } from '../permissions'
 
-export type Role = 'admin' | 'manager' | 'waiter' | 'kitchen'
+export type { Role }
 export type Staff = { id: number; username: string; name: string; role: Role }
 
 const STAFF_COOKIE = 'sb_staff'
@@ -58,7 +59,18 @@ export async function requireStaff(...roles: Role[]): Promise<Staff> {
   return staff
 }
 
-export const canManage = (r: Role) => r === 'admin' || r === 'manager'
+/**
+ * Permission check (see lib/permissions.ts). Passes if the signed-in staff member holds ANY of the
+ * listed permissions. Always call this first in a protected handler.
+ */
+export async function requirePerm(...perms: Permission[]): Promise<Staff> {
+  const staff = await currentStaff()
+  if (!staff) throw new ApiError(401, 'Please sign in', 'unauthenticated')
+  if (!perms.some((p) => can(staff.role, p))) throw new ApiError(403, 'You do not have permission to do this', 'forbidden')
+  return staff
+}
+
+export const canManage = (r: Role) => can(r, 'switches.manage')
 
 // ---- customer table sessions ----
 export type TableSession = {

@@ -11,14 +11,28 @@ export class ApiError extends Error {
 
 export const json = <T,>(data: T, init?: ResponseInit) => NextResponse.json(data, init)
 
+/**
+ * The caller's IP, or null when it cannot be known. Forwarding headers are set by whoever sends the
+ * request, so they are only believed when TRUST_PROXY=1 says a reverse proxy overwrites them.
+ */
+export function ipFrom(h: Headers): string | null {
+  if (process.env.TRUST_PROXY !== '1') return null
+  const ip = (h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? '').trim()
+  return ip || null
+}
 export async function clientIp() {
-  const h = await headers()
-  return (h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? 'local').trim()
+  return ipFrom(await headers())
 }
 
 /** Throttle by key; throws 429 when exceeded. */
 export function limit(key: string, max: number, windowMs: number) {
   if (!rateLimit(key, max, windowMs)) throw new ApiError(429, 'Too many requests. Please slow down.', 'rate_limited')
+}
+
+/** Per-IP throttle. Skipped when the IP is unknown: one shared bucket would let a busy room lock itself out. */
+export async function limitIp(name: string, max: number, windowMs: number) {
+  const ip = await clientIp()
+  if (ip) limit(`${name}:${ip}`, max, windowMs)
 }
 
 /**

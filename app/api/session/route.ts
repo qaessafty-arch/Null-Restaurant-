@@ -1,4 +1,4 @@
-import { body, ApiError, json, limit, route, clientIp, str } from '@/lib/server/http'
+import { body, ApiError, json, route, clientIp, limitIp, str } from '@/lib/server/http'
 import { all, get } from '@/lib/server/db'
 import { audit, clearTableSession, currentTableSession, openTableSession } from '@/lib/server/auth'
 import { getSettings } from '@/lib/server/settings'
@@ -23,7 +23,7 @@ export const GET = route(async () => {
 
 /** Manual table selection (customer opened the menu without scanning a table QR). */
 export const POST = route(async (req) => {
-  limit(`table-pick:${await clientIp()}`, 20, 10 * 60_000)
+  await limitIp('table-pick', 20, 10 * 60_000)
   const s = getSettings()
   if (s.manualTableMode !== 'open')
     throw new ApiError(403, 'Please scan the QR code on your table or ask your waiter', 'manual_disabled')
@@ -32,7 +32,7 @@ export const POST = route(async (req) => {
   const t = get<{ id: number }>('SELECT id FROM tables WHERE public_id = ? AND active = 1', publicId)
   if (!t) throw new ApiError(404, 'That table is not available', 'invalid_table')
   await openTableSession(t.id, 'manual', s.tableSessionHours)
-  audit(null, 'customer', 'table.manual_select', publicId, '', await clientIp())
+  audit(null, 'customer', 'table.manual_select', publicId, '', (await clientIp()) ?? '')
   return json({ ok: true })
 })
 

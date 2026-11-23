@@ -8,7 +8,7 @@ import { api, ApiErr, clock, type OrderFull } from '@/components/staff/api'
 type KOrder = Omit<OrderFull, 'timeline'>
 
 export default function KitchenPage() {
-  return <StaffShell roles={['kitchen', 'manager', 'admin']} title="Kitchen" wide><Display /></StaffShell>
+  return <StaffShell perm="kitchen.operate" title="Kitchen" wide><Display /></StaffShell>
 }
 
 function mins(iso: string | null, now: number) { return iso ? Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000)) : 0 }

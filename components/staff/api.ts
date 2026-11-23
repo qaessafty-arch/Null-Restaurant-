@@ -1,5 +1,7 @@
 'use client'
 
+import type { Permission, Role } from '@/lib/permissions'
+
 export class ApiErr extends Error {
   constructor(public status: number, message: string, public code?: string) { super(message) }
 }
@@ -28,7 +30,7 @@ export function ago(iso: string, now = Date.now()) {
   return m < 1 ? 'now' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`
 }
 
-export type Role = 'admin' | 'manager' | 'waiter' | 'kitchen'
+export type { Role }
 export type Me = { id: number; username: string; name: string; role: Role }
 
 export type OrderLite = {
@@ -40,7 +42,7 @@ export type OrderFull = Omit<OrderLite, 'itemCount'> & {
   verifiedBy: string | null; verifiedAt: string | null
   items: Array<{ name: string; quantity: number; lineTotal: number; instructions: string; options: Array<{ group: string; name: string; delta: number }> }>
   timeline: Array<{ from: string | null; to: string; by: string; note: string; at: string }>
-  allowed?: Array<{ to: string; roles: string[] }>
+  allowed?: Array<{ to: string; perm: Permission }>
 }
 
 export const STATUS_LABEL: Record<string, string> = {

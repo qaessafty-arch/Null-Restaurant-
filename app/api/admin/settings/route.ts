@@ -1,11 +1,11 @@
 import { ApiError, body, json, route, str } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { getSettings, setSetting, type Settings } from '@/lib/server/settings'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = route(async () => {
-  await requireStaff('admin')
+  await requirePerm('settings.manage')
   return json({ settings: getSettings() })
 })
 
@@ -46,7 +46,7 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
 }
 
 export const PUT = route(async (req) => {
-  const staff = await requireStaff('admin')
+  const staff = await requirePerm('settings.manage')
   const b = await body(req)
   const changed: string[] = []
   const validated: Array<[keyof Settings, unknown]> = []

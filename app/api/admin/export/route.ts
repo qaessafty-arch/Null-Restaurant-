@@ -1,4 +1,4 @@
-import { requireStaff } from '@/lib/server/auth'
+import { requirePerm } from '@/lib/server/auth'
 import { route } from '@/lib/server/http'
 import { all } from '@/lib/server/db'
 import { audit } from '@/lib/server/auth'
@@ -9,7 +9,7 @@ const csv = (v: unknown) => { const s = String(v ?? ''); return /^[=+\-@]/.test(
 
 /** Orders report as CSV. Cells starting with = + - @ are neutralised against spreadsheet formula injection. */
 export const GET = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('reports.view')
   const u = new URL(req.url)
   const from = u.searchParams.get('from') ?? '1970-01-01'
   const to = u.searchParams.get('to') ?? '2999-01-01'

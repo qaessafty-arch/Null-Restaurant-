@@ -1,10 +1,10 @@
 import { ApiError, body, json, route, str } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { run } from '@/lib/server/db'
 import { staffOrder } from '@/lib/server/orders'
 
 export const POST = route(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const staff = await requireStaff('waiter', 'manager', 'admin')
+  const staff = await requirePerm('orders.serve')
   const { id } = await ctx.params
   const b = await body(req)
   const note = str(b.note, 'note', { max: 500 })

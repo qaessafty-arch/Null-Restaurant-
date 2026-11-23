@@ -96,7 +96,7 @@ features extend them; nothing working is replaced.
 | # | Stage | Status |
 |---|---|---|
 | 1 | Audit, plan, reproducible test harness | Done |
-| 2 | Migration runner, orders rebuild, permissions and new roles | |
+| 2 | Migration runner, orders rebuild, permissions and new roles | Done |
 | 3 | Design system tokens, light/dark, staff/admin shell refresh | |
 | 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | |
 | 5 | Kitchen stations, item routing, timers, delay warnings | |
@@ -109,3 +109,19 @@ features extend them; nothing working is replaced.
 | 12 | End-to-end workflow tests (the ten critical flows in the brief) | |
 
 Every stage ends with typecheck, build, the full API suite, and a docs update.
+
+## 4. Stage notes
+
+### Stage 2 (done)
+
+- `lib/server/migrations.ts` holds the frozen v1 schema and every later migration; `db.ts` just runs them.
+  `tests/migrations.test.mjs` builds a real v1 database with orders, history and sessions, upgrades it,
+  and checks every row, foreign key and cascade.
+- Migration 2 rebuilds `staff` (8 roles, phone/email/notes) and `orders` (type, channel, optional table
+  and session, customer, discount, payment status, priority, assignee) and adds `customers`.
+- `lib/permissions.ts` is the single permission map. Handlers call `requirePerm(...)`; the client uses
+  `can()` only to hide controls. Only an owner can create an owner; the last owner/admin is protected.
+- Security fix found in the audit: rate limits keyed on `X-Forwarded-For`, which any client can forge
+  (unlimited password guesses by rotating fake IPs). That header is now believed only with
+  `TRUST_PROXY=1`; without it, per-IP limits are skipped and per-user / per-session limits remain.
+- Tests: 34/34 (25 original + 4 migration + 5 role matrix).

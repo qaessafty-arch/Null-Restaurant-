@@ -1,5 +1,5 @@
 import { ApiError, body, bool, int, json, route, str } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { all, get, run, tx } from '@/lib/server/db'
 import { randomToken } from '@/lib/server/security'
 import { originOf } from '@/lib/server/origin'
@@ -7,7 +7,7 @@ import { originOf } from '@/lib/server/origin'
 export const dynamic = 'force-dynamic'
 
 export const GET = route(async (req) => {
-  await requireStaff('manager', 'admin')
+  await requirePerm('tables.manage')
   const origin = originOf(req)
   const rows = all<{ id: number; public_id: string; number: string; location: string; qr_token: string; active: number; occupied: number; waiter_id: number | null; waiter: string | null; open_orders: number }>(
     `SELECT t.*, s.name AS waiter,
@@ -25,7 +25,7 @@ const newTable = (number: string, location: string, waiterId: number | null) =>
   run('INSERT INTO tables (public_id, number, location, qr_token, waiter_id) VALUES (?,?,?,?,?)', randomToken(9), number, location, randomToken(18), waiterId)
 
 export const POST = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('tables.manage')
   const b = await body(req)
   const created: string[] = []
   tx(() => {
@@ -51,7 +51,7 @@ export const POST = route(async (req) => {
 })
 
 export const PATCH = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('tables.manage')
   const b = await body(req)
   const id = int(b.id, 'id', { min: 1 })!
   const t = get<{ number: string }>('SELECT number FROM tables WHERE id = ?', id)
@@ -83,7 +83,7 @@ export const PATCH = route(async (req) => {
 })
 
 export const DELETE = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('tables.manage')
   const id = int(new URL(req.url).searchParams.get('id'), 'id', { min: 1 })!
   const used = get<{ c: number }>('SELECT COUNT(*) c FROM orders WHERE table_id = ?', id)!.c
   if (used) throw new ApiError(409, 'This table has order history. Disable it instead of deleting it.', 'has_history')

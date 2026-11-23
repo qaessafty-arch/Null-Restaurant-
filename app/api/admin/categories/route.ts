@@ -1,12 +1,12 @@
 import { ApiError, body, bool, int, json, route, str } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { get, run } from '@/lib/server/db'
 import { loadMenu } from '@/lib/server/menu'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = route(async () => {
-  await requireStaff('manager', 'admin')
+  await requirePerm('menu.manage')
   return json({ categories: loadMenu(true) })
 })
 
@@ -20,7 +20,7 @@ function fields(b: Record<string, unknown>) {
 }
 
 export const POST = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('menu.manage')
   const f = fields(await body(req))
   const next = (get<{ m: number | null }>('SELECT MAX(sort) m FROM categories')!.m ?? -1) + 1
   const r = run('INSERT INTO categories (name_en, name_ku, name_ar, icon, sort) VALUES (?,?,?,?,?)', f.name_en, f.name_ku, f.name_ar, f.icon, next)
@@ -29,7 +29,7 @@ export const POST = route(async (req) => {
 })
 
 export const PATCH = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('menu.manage')
   const b = await body(req)
   const id = int(b.id, 'id', { min: 1 })!
   if (Array.isArray(b.order)) {
@@ -49,7 +49,7 @@ export const PATCH = route(async (req) => {
 })
 
 export const DELETE = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('menu.manage')
   const id = int(new URL(req.url).searchParams.get('id'), 'id', { min: 1 })!
   const n = get<{ c: number }>('SELECT COUNT(*) c FROM items WHERE category_id = ?', id)!.c
   if (n) throw new ApiError(409, `This category still has ${n} item(s). Move or delete them first, or hide the category instead.`, 'not_empty')

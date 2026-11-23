@@ -1,12 +1,12 @@
 import { json, route } from '@/lib/server/http'
-import { requireStaff } from '@/lib/server/auth'
+import { requirePerm } from '@/lib/server/auth'
 import { all, get } from '@/lib/server/db'
 
 export const dynamic = 'force-dynamic'
 
 /** Every number here is computed from the orders table. Nothing is estimated or sample data. */
 export const GET = route(async (req) => {
-  await requireStaff('manager', 'admin')
+  await requirePerm('reports.view')
   const days = Math.min(Math.max(Number(new URL(req.url).searchParams.get('days') ?? 30) || 30, 1), 365)
   const c = (where: string, ...a: unknown[]) => get<{ c: number }>(`SELECT COUNT(*) c FROM orders WHERE ${where}`, ...a)!.c
   const since = `datetime('now', '-${days} days')`

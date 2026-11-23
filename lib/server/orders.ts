@@ -1,7 +1,8 @@
 import 'server-only'
 import { all, get, run, tx } from './db'
 import { ApiError } from './http'
-import { audit, type Role, type Staff, type TableSession } from './auth'
+import { audit, type Staff, type TableSession } from './auth'
+import { canDoStep, type Audience, type Permission } from '../permissions'
 import { publish } from './events'
 import { getSettings } from './settings'
 import { randomCode, randomToken, safeEqual, sha256 } from './security'
@@ -14,12 +15,12 @@ export const STATUSES = [
 export type OrderStatus = (typeof STATUSES)[number]
 export const FINAL: OrderStatus[] = ['completed', 'rejected', 'cancelled']
 
-const WAITERS: Role[] = ['waiter', 'manager', 'admin']
-const KITCHEN: Role[] = ['kitchen', 'manager', 'admin']
-const MANAGERS: Role[] = ['manager', 'admin']
+const WAITERS: Permission = 'orders.serve'
+const KITCHEN: Permission = 'kitchen.operate'
+const MANAGERS: Permission = 'orders.override'
 
-/** Controlled workflow: which roles may move an order from one status to the next. */
-const TRANSITIONS: Record<OrderStatus, Partial<Record<OrderStatus, Role[]>>> = {
+/** Controlled workflow: which permission moves an order from one status to the next. */
+const TRANSITIONS: Record<OrderStatus, Partial<Record<OrderStatus, Permission>>> = {
   awaiting_verification: { verified: WAITERS, rejected: WAITERS, cancelled: WAITERS },
   verified: { confirmed: WAITERS, rejected: WAITERS, cancelled: WAITERS },
   confirmed: { preparing: KITCHEN, cancelled: WAITERS },
@@ -117,7 +118,7 @@ export function priceCart(lines: CartLine[]) {
 
 // ---------------------------------------------------------------- notifications
 
-export function notify(audience: 'waiter' | 'kitchen' | 'admin', kind: string, title: string, body = '', orderId: number | null = null) {
+export function notify(audience: Audience, kind: string, title: string, body = '', orderId: number | null = null) {
   run('INSERT INTO notifications (audience, kind, title, body, order_id) VALUES (?, ?, ?, ?, ?)', audience, kind, title, body, orderId)
   publish(audience === 'kitchen' ? 'kitchen' : 'staff', 'notification', { audience, kind, title })
 }
@@ -281,7 +282,7 @@ export function staffOrder(id: string) {
 }
 
 export function allowedNext(status: OrderStatus) {
-  return Object.entries(TRANSITIONS[status]).map(([to, roles]) => ({ to: to as OrderStatus, roles }))
+  return Object.entries(TRANSITIONS[status]).map(([to, perm]) => ({ to: to as OrderStatus, perm: perm as Permission }))
 }
 
 export type ListFilter = {
@@ -330,10 +331,10 @@ export function transition(
     const s = getSettings()
 
     // waiter shortcut straight to "served" only if the restaurant enabled that workflow
-    let allowedRoles = TRANSITIONS[o.status][to]
-    if (!allowedRoles && s.waiterCanSkipKitchen && to === 'served' && (o.status === 'confirmed' || o.status === 'verified')) allowedRoles = WAITERS
-    if (!allowedRoles) throw new ApiError(409, `An order that is "${o.status.replace('_', ' ')}" cannot become "${to}"`, 'bad_transition')
-    if (actor.staff ? !allowedRoles.includes(actor.staff.role) : !(to === 'cancelled' && o.status === 'awaiting_verification'))
+    let needed = TRANSITIONS[o.status][to]
+    if (!needed && s.waiterCanSkipKitchen && to === 'served' && (o.status === 'confirmed' || o.status === 'verified')) needed = WAITERS
+    if (!needed) throw new ApiError(409, `An order that is "${o.status.replace('_', ' ')}" cannot become "${to}"`, 'bad_transition')
+    if (actor.staff ? !canDoStep(actor.staff.role, needed) : !(to === 'cancelled' && o.status === 'awaiting_verification'))
       throw new ApiError(403, 'You do not have permission for this change', 'forbidden')
     if ((to === 'rejected' || to === 'cancelled') && !(opts.reason ?? '').trim())
       throw new ApiError(400, 'Please give a reason', 'reason_required')

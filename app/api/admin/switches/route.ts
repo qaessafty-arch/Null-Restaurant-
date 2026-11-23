@@ -1,5 +1,5 @@
 import { ApiError, body, json, route, str } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { getSettings, setSetting } from '@/lib/server/settings'
 
 export const dynamic = 'force-dynamic'
@@ -15,12 +15,12 @@ const pick = () => {
 
 /** Quick "pause" switches for the people running the floor. Managers and admins; nothing else can be changed here. */
 export const GET = route(async () => {
-  await requireStaff('manager', 'admin')
+  await requirePerm('switches.manage')
   return json({ switches: pick() })
 })
 
 export const PUT = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('switches.manage')
   const b = await body(req)
   const changed: string[] = []
   for (const [k, v] of Object.entries(b)) {

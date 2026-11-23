@@ -31,6 +31,7 @@ jobs:
           ADMIN_PASSWORD: Admin#12345
           UPLOAD_DIR: ${{ runner.temp }}/uploads
           INSECURE_COOKIES: "1"
+          TRUST_PROXY: "1"
           BASE: http://localhost:3100
         run: |
           pnpm start -p 3100 &

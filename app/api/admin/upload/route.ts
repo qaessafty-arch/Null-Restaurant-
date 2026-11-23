@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { ApiError, json, limit, route } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { randomToken } from '@/lib/server/security'
 import { uploadDir } from '@/lib/server/uploads'
 
@@ -16,7 +16,7 @@ function sniff(b: Buffer): 'png' | 'jpg' | 'webp' | 'gif' | null {
 }
 
 export const POST = route(async (req) => {
-  const staff = await requireStaff('manager', 'admin')
+  const staff = await requirePerm('menu.manage')
   limit(`upload:${staff.id}`, 30, 10 * 60_000)
   const form = await req.formData().catch(() => null)
   const file = form?.get('file')

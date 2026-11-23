@@ -1,12 +1,12 @@
 import { int, json, route, str } from '@/lib/server/http'
-import { requireStaff } from '@/lib/server/auth'
+import { requirePerm } from '@/lib/server/auth'
 import { listOrders } from '@/lib/server/orders'
 import { get } from '@/lib/server/db'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = route(async (req) => {
-  const staff = await requireStaff('waiter', 'manager', 'admin')
+  const staff = await requirePerm('orders.view')
   const u = new URL(req.url)
   const scope = u.searchParams.get('scope')
   const statuses = (u.searchParams.get('status') ?? '').split(',').filter(Boolean)

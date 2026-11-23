@@ -21,7 +21,7 @@ const FILTERS = [
 ]
 
 export default function WaiterPage() {
-  return <StaffShell roles={['waiter', 'manager', 'admin']} title="Waiter"><Board /></StaffShell>
+  return <StaffShell perm="orders.serve" title="Waiter"><Board /></StaffShell>
 }
 
 function Board() {

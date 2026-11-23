@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { Download, Printer, RefreshCw } from 'lucide-react'
 import { api, ApiErr } from '@/components/staff/api'
+import { can } from '@/lib/permissions'
 import { useMe } from '@/components/staff/shell'
 
 type T = { id: number; number: string; location: string; active: boolean; occupied: boolean; waiterId: number | null; waiter: string | null; openOrders: number; qrUrl: string }
@@ -24,7 +25,7 @@ export default function TablesAdmin() {
       const imgs: Record<number, string> = {}
       await Promise.all(d.tables.map(async (t) => { imgs[t.id] = await QRCode.toDataURL(t.qrUrl, { margin: 2, width: 600, errorCorrectionLevel: 'M' }) }))
       setQr(imgs)
-      if (me.role === 'admin') setWaiters((await api<{ staff: Staff[] }>('GET', '/api/admin/staff')).staff.filter((s) => s.role === 'waiter' && s.active))
+      if (can(me.role, 'staff.manage')) setWaiters((await api<{ staff: Staff[] }>('GET', '/api/admin/staff')).staff.filter((s) => s.role === 'waiter' && s.active))
       setErr('')
     } catch (e) { setErr((e as Error).message) }
   }, [me.role])
@@ -72,7 +73,7 @@ export default function TablesAdmin() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {qr[t.id] && <img src={qr[t.id]} alt={`QR code for table ${t.number}`} />}
             <input defaultValue={t.location} placeholder="Location" aria-label="Location" onBlur={(e) => e.target.value !== t.location && void patch(t.id, { location: e.target.value })} />
-            {me.role === 'admin' && (
+            {can(me.role, 'staff.manage') && (
               <select value={t.waiterId ?? ''} onChange={(e) => void patch(t.id, { waiterId: e.target.value ? Number(e.target.value) : null })} aria-label="Assigned waiter">
                 <option value="">No waiter assigned</option>{waiters.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>

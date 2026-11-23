@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { KeyRound, Plus } from 'lucide-react'
 import { api, ApiErr } from '@/components/staff/api'
+import { ROLE_LABEL } from '@/lib/permissions'
 
 type S = { id: number; username: string; name: string; role: string; active: boolean; lastLoginAt: string | null; actions: number }
-const ROLES = [['admin', 'Administrator'], ['manager', 'Manager'], ['waiter', 'Waiter'], ['kitchen', 'Kitchen staff']]
+const ROLES = Object.entries(ROLE_LABEL)
 
 export default function StaffAdmin() {
   const [list, setList] = useState<S[]>([])

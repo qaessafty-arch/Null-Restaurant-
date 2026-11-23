@@ -1,4 +1,4 @@
-import { ApiError, body, json, limit, route, clientIp, str } from '@/lib/server/http'
+import { ApiError, body, json, limit, limitIp, route, clientIp, str } from '@/lib/server/http'
 import { get, run } from '@/lib/server/db'
 import { audit, startStaffSession, type Staff } from '@/lib/server/auth'
 import { hashPassword, verifyPassword } from '@/lib/server/security'
@@ -6,8 +6,8 @@ import { hashPassword, verifyPassword } from '@/lib/server/security'
 const DUMMY = hashPassword('not-a-real-password') // equalise timing for unknown users
 
 export const POST = route(async (req) => {
-  const ip = await clientIp()
-  limit(`login-ip:${ip}`, 20, 10 * 60_000)
+  const ip = (await clientIp()) ?? ''
+  await limitIp('login-ip', 20, 10 * 60_000)
   const b = await body(req)
   const username = str(b.username, 'username', { required: true, max: 60 })
   const password = str(b.password, 'password', { required: true, max: 200 })
