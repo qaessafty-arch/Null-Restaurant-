@@ -102,7 +102,7 @@ features extend them; nothing working is replaced.
 | 5 | Kitchen stations, item routing, timers, delay warnings | Done |
 | 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | Done |
 | 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | Done (transfers deferred, see notes) |
-| 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | |
+| 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | Done |
 | 9 | CRM: customers, history, loyalty, consent | |
 | 10 | Customer site: reservations page, offers, gallery, order history; staff/admin RTL | |
 | 11 | Security and performance pass | |
@@ -225,3 +225,36 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
 - Bugs found in browser testing and fixed: table action cells broke the row layout (POS transactions
   too); the admin input style hid the search icon; duplicated PO labels in the history.
 - Tests: 77/77 (adds `tests/inventory.test.mjs`, TEST 8).
+
+### Stage 8 (done)
+
+- **Definitions** (`lib/server/finance.ts`, stated on screen too): a sale is an order that reached the
+  kitchen and was not cancelled; net sales = subtotal - discounts; tax and service charge are reported,
+  not counted as income; collected = payments - refunds by when the money moved; cost of goods = value
+  of stock that orders used (stock movements, cost at the time); stock bought is cash out, not an
+  expense (it becomes cost of goods when used, so counting both would double the cost); estimated profit
+  = net sales - cost of goods - waste - expenses, with the share of sold items that have a recipe shown
+  next to it.
+- **Expenses** (migration 7): rent, salaries, utilities, etc.; recorded by people with `finance.manage`,
+  voided with a reason, never deleted.
+- **Reports**: any local-date range up to about a year, compared with the previous period of the same
+  length; by day (or by hour for one day), busiest hours, weekday, category, product with margin from
+  recipe cost, slowest and unsold dishes, payment method and currency, order type, table, discounts,
+  refunds, waste.
+- **Exports**: CSV per report (UTF-8 with BOM for Excel; numbers stay numbers; text starting with
+  = + - @ tab or CR is neutralised); Excel `.xlsx` with every report as a sheet, written by a small
+  dependency-free generator (`lib/server/sheets.ts`; checked with a zip/XML parser: valid CRCs,
+  well-formed XML, typed cells, Arabic text intact); PDF via the print stylesheet (browser "Save as PDF",
+  which renders Kurdish and Arabic correctly where server PDF fonts would not).
+- **Dashboard** rebuilt on the same engine: today / yesterday / 7 / 30 days vs the previous period; right
+  now (to verify, in kitchen with late count, ready, guest requests and bill requests, unpaid orders and
+  amount, tables in use, bookings today); sales chart; needs attention (low stock, next bookings); best
+  sellers; recent payments; activity feed. Quick switches kept.
+- Charts: single-series SVG columns and labelled share bars, no chart library; accent colour validated
+  against light and dark surfaces; hover tooltip with the full date; every chart has a table view.
+- Bugs found and fixed: the receipt print rules applied to every page, so printing anything else
+  produced a blank page; `useLive` refetched only on its timer, so changing a period, date or filter took
+  up to 15 s to show (this also affected the original Orders page filters); new token pages sat as a dark
+  island inside a light admin frame in dark mode, and the admin shell forced white inputs on them.
+- Tests: 83/83 (adds `tests/finance.test.mjs`: exact deltas for sales, discounts, collections, refunds,
+  outstanding, cost of goods, waste, expenses and profit; permissions; exports; dashboard).

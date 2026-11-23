@@ -14,6 +14,13 @@ export const useMe = () => useContext(MeCtx)!
 export function useLive(fn: () => void, intervalMs = 8000) {
   const ref = useRef(fn)
   useEffect(() => { ref.current = fn })
+  // A new fn (its inputs changed: a filter, a date, a period) fetches at once instead of at the next tick.
+  // Callers pass a useCallback, so this runs only when those inputs change.
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) { first.current = false; return }
+    fn()
+  }, [fn])
   useEffect(() => {
     const run = () => ref.current()
     run()

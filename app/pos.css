@@ -122,12 +122,14 @@
 .rc-total { font-weight: 700; font-size: 14px; margin-top: 4px; }
 .receipt-dialog .ui-dialog-body { background: var(--surface-2); padding-top: var(--s-4); }
 
+/* Only while a receipt is open: print just the receipt, on 80mm paper. Other pages print normally. */
 @media print {
-  @page { size: 80mm auto; margin: 0; }
-  body * { visibility: hidden !important; }
-  #receipt-print, #receipt-print * { visibility: visible !important; }
-  #receipt-print { position: absolute; inset: 0 auto auto 0; }
+  body:has(#receipt-print) * { visibility: hidden !important; }
+  body:has(#receipt-print) #receipt-print, body:has(#receipt-print) #receipt-print * { visibility: visible !important; }
+  body:has(#receipt-print) #receipt-print { position: absolute; inset: 0 auto auto 0; }
 }
+@page receipt { size: 80mm auto; margin: 0; }
+#receipt-print { page: receipt; }
 
 @media (max-width: 1024px) {
   .pos-order { grid-template-columns: minmax(0, 1fr) 330px; }

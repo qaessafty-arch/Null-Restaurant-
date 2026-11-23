@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { BarChart3, ClipboardList, Grid2x2, History, Settings, UtensilsCrossed, Users, ChefHat, ConciergeBell, LayoutDashboard, CalendarDays, ShoppingBag, Boxes } from 'lucide-react'
+import { BarChart3, ClipboardList, Grid2x2, History, Settings, UtensilsCrossed, Users, ChefHat, ConciergeBell, LayoutDashboard, CalendarDays, ShoppingBag, Boxes, Wallet } from 'lucide-react'
 import { StaffShell, useMe } from '@/components/staff/shell'
 import { can, homeFor, type Permission } from '@/lib/permissions'
 
 const NAV: Array<{ href: string; label: string; icon: typeof BarChart3; perm: Permission }> = [
   { href: '/admin', label: 'Dashboard', icon: BarChart3, perm: 'reports.view' },
+  { href: '/admin/finance', label: 'Finance', icon: Wallet, perm: 'reports.view' },
   { href: '/admin/floor', label: 'Floor', icon: LayoutDashboard, perm: 'tables.view' },
   { href: '/admin/reservations', label: 'Reservations', icon: CalendarDays, perm: 'reservations.manage' },
   { href: '/admin/orders', label: 'Orders', icon: ClipboardList, perm: 'orders.view' },

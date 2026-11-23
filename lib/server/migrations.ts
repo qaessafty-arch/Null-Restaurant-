@@ -606,6 +606,30 @@ ALTER TABLE items ADD COLUMN auto_soldout INTEGER NOT NULL DEFAULT 0;
 `)
     },
   },
+  {
+    // Stage 8. Operating expenses (rent, salaries, utilities...). Inventory purchases are NOT expenses:
+    // their cost reaches the books as cost of goods when the stock is used.
+    version: 7,
+    up: (c) => {
+      c.exec(`
+CREATE TABLE expenses (
+  id INTEGER PRIMARY KEY,
+  spent_on TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('rent','salaries','utilities','supplies','marketing','maintenance','equipment','fees','taxes','other')),
+  description TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  method TEXT NOT NULL DEFAULT '',
+  supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+  reference TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'recorded' CHECK (status IN ('recorded','voided')),
+  void_reason TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_expenses_day ON expenses(spent_on);
+`)
+    },
+  },
 ]
 
 /**

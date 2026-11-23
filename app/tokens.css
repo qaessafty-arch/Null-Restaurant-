@@ -50,7 +50,7 @@
 
 /* Dark: staff apps follow the device unless the person picked a theme (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .themed {
+  :root:not([data-theme="light"]) .themed, :root:not([data-theme="light"]) .st-app:has(.themed) {
     --bg: #121212; --surface: #1c1c1c; --surface-2: #242424; --chrome: #0b0b0b; --on-chrome: #f4efe8;
     --text: #f2ede6; --text-2: #b9b1a8; --text-3: #847c73; --border: #2e2e2e; --border-strong: #3d3d3d;
     --accent: #e8683e; --accent-hover: #f07a51; --accent-soft: #3a2219; --on-accent: #141414; --highlight: #e0b766;
@@ -60,7 +60,7 @@
     color-scheme: dark;
   }
 }
-:root[data-theme="dark"] .themed {
+:root[data-theme="dark"] .themed, :root[data-theme="dark"] .st-app:has(.themed) {
   --bg: #121212; --surface: #1c1c1c; --surface-2: #242424; --chrome: #0b0b0b; --on-chrome: #f4efe8;
   --text: #f2ede6; --text-2: #b9b1a8; --text-3: #847c73; --border: #2e2e2e; --border-strong: #3d3d3d;
   --accent: #e8683e; --accent-hover: #f07a51; --accent-soft: #3a2219; --on-accent: #141414; --highlight: #e0b766;
@@ -72,6 +72,11 @@
 
 /* ---- shared primitives (prefix ui-) ---------------------------------------------------------- */
 .themed { background: var(--bg); color: var(--text); }
+/* A staff/admin frame around a token-built page takes the page's theme, so dark mode is not an island. */
+.st-app:has(.themed) { background: var(--bg); color: var(--text); }
+.st-app:has(.themed) .ad-head h1 { color: var(--text); }
+/* The admin shell styles every input; token pages keep their own fields (ties go to this later file). */
+.ad-main .themed input.ui-input, .ad-main .themed select.ui-select, .ad-main .themed textarea.ui-textarea { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
 .ui-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
   min-height: 44px; padding: 0 var(--s-4); border: 1px solid var(--border-strong); border-radius: var(--r-md);
