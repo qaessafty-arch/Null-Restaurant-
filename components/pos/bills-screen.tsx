@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { BellRing, Receipt as ReceiptIcon, Percent, ChevronLeft, Check } from 'lucide-react'
-import { api, ApiErr, ago } from '@/components/staff/api'
+import { api, ApiErr, ago, agoText } from '@/components/staff/api'
 import { useLive, useMe } from '@/components/staff/shell'
 import { can } from '@/lib/permissions'
 import { formatMoney } from '@/lib/money'
@@ -33,7 +33,7 @@ export function BillsScreen({ config, open, setOpen }: { config: PosConfig; open
           <button key={b.key} type="button" className={`pos-bill ${b.billRequestedAt ? 'asking' : ''}`}
             onClick={() => setOpen(b.tableId ? { kind: 'table', tableId: b.tableId } : { kind: 'order', orderId: b.key.slice(1) })}>
             <span className="pos-bill-label">{b.label}</span>
-            {b.billRequestedAt && <span className="ui-pill accent"><BellRing size={12} /> Bill asked {ago(b.billRequestedAt)} ago</span>}
+            {b.billRequestedAt && <span className="ui-pill accent"><BellRing size={12} /> Bill asked {agoText(b.billRequestedAt)}</span>}
             <span className="ui-num pos-bill-due">{formatMoney(b.due, base)}</span>
             <span className="ui-hint">{b.orders} order{b.orders > 1 ? 's' : ''}{b.since ? ` · open ${ago(b.since)}` : ''}</span>
           </button>

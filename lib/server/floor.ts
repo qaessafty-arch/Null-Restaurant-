@@ -4,6 +4,8 @@ import { ApiError } from './http'
 import { audit, type Staff } from './auth'
 import { publish } from './events'
 import { paidFor } from './payments'
+import { getSettings } from './settings'
+import { fromSql, localClock } from '../time'
 
 /**
  * Live table status, derived from orders, payments, guest requests, sessions and reservations so it can
@@ -42,6 +44,7 @@ export function floor() {
      WHERE table_id IS NOT NULL AND (status = 'seated' OR (status IN ('pending','confirmed') AND starts_at <= datetime('now', '+${RESERVED_LOOKAHEAD_MIN} minutes') AND ends_at > datetime('now')))
      ORDER BY starts_at`)
 
+  const tz = getSettings().timezone
   return tables.map((t) => {
     const mine = orders.filter((o) => o.table_id === t.id)
     const due = mine.reduce((a, o) => a + Math.max(0, o.total - (paid.get(o.id) ?? 0)), 0)
@@ -66,7 +69,7 @@ export function floor() {
       openOrders: mine.filter((o) => o.status !== 'completed').length, due, openRequests: t.open_requests, billRequested: !!t.bill_requested,
       since: iso(mine[0]?.created_at ?? null),
       reservation: (seatedRes ?? upcoming)
-        ? { id: (seatedRes ?? upcoming)!.public_id, name: (seatedRes ?? upcoming)!.name, partySize: (seatedRes ?? upcoming)!.party_size, startsAt: iso((seatedRes ?? upcoming)!.starts_at), status: (seatedRes ?? upcoming)!.status }
+        ? { id: (seatedRes ?? upcoming)!.public_id, name: (seatedRes ?? upcoming)!.name, partySize: (seatedRes ?? upcoming)!.party_size, startsAt: iso((seatedRes ?? upcoming)!.starts_at), time: localClock(fromSql((seatedRes ?? upcoming)!.starts_at), tz), status: (seatedRes ?? upcoming)!.status }
         : null,
     }
   })

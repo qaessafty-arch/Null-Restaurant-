@@ -100,7 +100,7 @@ features extend them; nothing working is replaced.
 | 3 | Design system tokens, light/dark, staff/admin shell refresh | Tokens done; older screens move over in the design pass |
 | 4 | Payments, bills, POS (walk-in/takeaway/delivery), receipts, IQD/USD | Done |
 | 5 | Kitchen stations, item routing, timers, delay warnings | Done |
-| 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | |
+| 6 | Tables: sections, capacity, floor plan, statuses; reservations with double-booking guard | Done |
 | 7 | Inventory: ingredients, recipes, stock movements, suppliers, purchase orders, alerts | |
 | 8 | Finance: expenses, revenue vs profit, reports, CSV/Excel/PDF export | |
 | 9 | CRM: customers, history, loyalty, consent | |
@@ -169,3 +169,28 @@ Every stage ends with typecheck, build, the full API suite, and a docs update.
 - Bug found in testing and fixed: on a fresh install the migration ran before the menu was seeded, so
   categories had no station. The seed now applies the same routing.
 - Tests: 54/54 (adds `tests/kitchen.test.mjs`).
+
+### Stage 6 (done)
+
+- **Tables** (migration 5): sections (Indoor/Outdoor/VIP seeded, editable), capacity, shape, floor
+  position (percent of the room), and a manual state for what only staff know: seated, cleaning, out
+  of service.
+- **Live status is derived** (`lib/server/floor.ts`) from orders, payments, bill requests, QR sessions
+  and bookings: available, occupied, reserved (booking within 60 min), ordering, waiting for food,
+  waiting for payment, cleaning, out of service. Orders outrank a stale "cleaning" flag. Clearing a
+  table is refused while money is owed; it ends the table's QR sessions so departed guests cannot keep
+  ordering to it.
+- **Reservations** (`lib/server/reservations.ts`): slots from opening hours in the restaurant's
+  timezone (after-midnight closing handled, `lib/time.ts`), configurable duration, buffer, slot interval,
+  notice, horizon, party limit and auto-confirm. Best table = preferred section, smallest that fits; a
+  table with guests at it is not offered for a booking that starts soon. Overlap check + write in one
+  immediate transaction (tested with two concurrent guests). Guests get a code and a private link to
+  view or cancel; staff see full contact details, guests see a masked phone. Lifecycle:
+  pending -> confirmed -> seated -> completed, plus cancelled (reason required) and no-show (only after
+  the start time); every change is in `reservation_history`. Each booking links to a customer record by phone.
+- **Screens**: Admin > Floor (drag to arrange, live colours, table drawer with the actions that fit
+  the state), Admin > Reservations (day timeline by table, list, create/edit, lifecycle), public
+  `/reserve` and `/reserve/<token>` in EN / Kurdish / Arabic with RTL, linked from the site navigation.
+- Bugs found in browser testing and fixed: booking times on the floor were shown in the browser's
+  timezone (now formatted on the server in the restaurant's); "now ago" in several staff screens.
+- Tests: 66/66 (adds `tests/time.test.mjs`, `tests/reservations.test.mjs`).

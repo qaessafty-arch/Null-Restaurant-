@@ -6,7 +6,7 @@ import { BellRing, ClipboardList, Grid2x2, QrCode, ScanLine } from 'lucide-react
 import { StaffShell, useLive, useMe } from '@/components/staff/shell'
 import { OrderDetail } from '@/components/staff/order-detail'
 import { VerifyPanel } from '@/components/staff/verify-panel'
-import { ago, api, iqd, STATUS_LABEL, type OrderLite } from '@/components/staff/api'
+import { agoText, api, iqd, STATUS_LABEL, type OrderLite } from '@/components/staff/api'
 
 type Table = { id: number; number: string; location: string; occupied: boolean; waiter: string | null; waiterId: number | null; openOrders: number; openRequests: number }
 type Req = { id: number; type: string; status: string; table: string; handler: string | null; createdAt: string }
@@ -80,7 +80,7 @@ function Board() {
                   <span className="st-card-main">
                     <b>{o.label}</b>
                     <span className={`st-badge s-${o.status}`}>{STATUS_LABEL[o.status]}</span>
-                    <small>{o.itemCount} item{o.itemCount === 1 ? '' : 's'} · {iqd(o.total)} · {ago(o.createdAt, now)} ago</small>
+                    <small>{o.itemCount} item{o.itemCount === 1 ? '' : 's'} · {iqd(o.total)} · {agoText(o.createdAt, now)}</small>
                   </span>
                 </button>
               ))}
@@ -99,7 +99,7 @@ function Board() {
             {reqs.map((r) => (
               <li key={r.id} className={`s-${r.status}`}>
                 <span className="st-card-table">{r.table}<small>Table</small></span>
-                <div><b>{r.type === 'bill' ? 'Bill request' : r.type === 'waiter' ? 'Waiter assistance' : r.type}</b><small>{ago(r.createdAt, now)} ago · {r.status.replace(/_/g, ' ')}{r.handler ? ` · ${r.handler}` : ''}</small></div>
+                <div><b>{r.type === 'bill' ? 'Bill request' : r.type === 'waiter' ? 'Waiter assistance' : r.type}</b><small>{agoText(r.createdAt, now)} · {r.status.replace(/_/g, ' ')}{r.handler ? ` · ${r.handler}` : ''}</small></div>
                 <div className="st-actions">
                   {r.status === 'waiting' && <button className="st-btn" onClick={async () => { await api('PATCH', '/api/staff/requests', { id: r.id, status: 'received' }); void refresh() }}>Received</button>}
                   {r.status !== 'on_the_way' && <button className="st-btn" onClick={async () => { await api('PATCH', '/api/staff/requests', { id: r.id, status: 'on_the_way' }); void refresh() }}>On the way</button>}

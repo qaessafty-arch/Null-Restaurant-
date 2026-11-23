@@ -66,6 +66,7 @@ const copy = {
     about: 'About',
     reviews: 'Reviews',
     contact: 'Contact',
+    reserve: 'Book a table',
     eyebrowLocation: 'ERBIL · KURDISTAN',
     heroHead1: "ERBIL'S",
     heroHead2: 'BOLDEST',
@@ -118,6 +119,7 @@ const copy = {
     about: 'دەربارە',
     reviews: 'هەڵسەنگاندن',
     contact: 'ناونیشان',
+    reserve: 'گرتنی مێز',
     eyebrowLocation: 'هەولێر · کوردستان',
     heroHead1: 'بەهێزترین',
     heroHead2: 'سمەش بەرگەری',
@@ -170,6 +172,7 @@ const copy = {
     about: 'قصتنا',
     reviews: 'التقييمات',
     contact: 'اتصل بنا',
+    reserve: 'احجز طاولة',
     eyebrowLocation: 'أربيل · كوردستان',
     heroHead1: 'أقوى برجر',
     heroHead2: 'سماش',
@@ -364,6 +367,7 @@ function PageInner({ lang, setLang }: { lang: 'EN' | 'KU' | 'AR'; setLang: (l: '
             <a href="#about">{t.about}</a>
             <a href="#reviews">{t.reviews}</a>
             <a href="#contact">{t.contact}</a>
+            <a href="/reserve">{t.reserve}</a>
           </div>
           <div className="nav-actions">
             {/* Language switcher */}
@@ -442,6 +446,7 @@ function PageInner({ lang, setLang }: { lang: 'EN' | 'KU' | 'AR'; setLang: (l: '
             <a href="#contact" onClick={() => setMobileOpen(false)}>
               {t.contact}
             </a>
+            <a href="/reserve">{t.reserve}</a>
             <button
               type="button"
               onClick={() => {
