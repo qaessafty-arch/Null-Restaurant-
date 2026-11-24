@@ -1,9 +1,15 @@
 import 'server-only'
 import { all, get, run, tx } from './db'
 import { ApiError } from './http'
-import { audit, type Role, type Staff, type TableSession } from './auth'
+import { audit, type Staff, type TableSession } from './auth'
+import { canDoStep, type Permission } from '../permissions'
 import { publish } from './events'
 import { getSettings } from './settings'
+import { orderTotals } from '../money'
+import { paidFor } from './payments'
+import { notify } from './notify'
+import { checkCart, consumeForOrder, reverseForOrder } from './inventory'
+import { returnRedeemed } from './customers'
 import { randomCode, randomToken, safeEqual, sha256 } from './security'
 
 // ---------------------------------------------------------------- statuses
@@ -14,12 +20,12 @@ export const STATUSES = [
 export type OrderStatus = (typeof STATUSES)[number]
 export const FINAL: OrderStatus[] = ['completed', 'rejected', 'cancelled']
 
-const WAITERS: Role[] = ['waiter', 'manager', 'admin']
-const KITCHEN: Role[] = ['kitchen', 'manager', 'admin']
-const MANAGERS: Role[] = ['manager', 'admin']
+const WAITERS: Permission = 'orders.serve'
+const KITCHEN: Permission = 'kitchen.operate'
+const MANAGERS: Permission = 'orders.override'
 
-/** Controlled workflow: which roles may move an order from one status to the next. */
-const TRANSITIONS: Record<OrderStatus, Partial<Record<OrderStatus, Role[]>>> = {
+/** Controlled workflow: which permission moves an order from one status to the next. */
+const TRANSITIONS: Record<OrderStatus, Partial<Record<OrderStatus, Permission>>> = {
   awaiting_verification: { verified: WAITERS, rejected: WAITERS, cancelled: WAITERS },
   verified: { confirmed: WAITERS, rejected: WAITERS, cancelled: WAITERS },
   confirmed: { preparing: KITCHEN, cancelled: WAITERS },
@@ -46,7 +52,7 @@ type OptRow = { id: number; group_id: number; name_en: string; price_delta: numb
 
 export type PricedLine = {
   itemId: number; name: string; unitPrice: number; optionsTotal: number; quantity: number; lineTotal: number
-  instructions: string; options: Array<{ group: string; name: string; delta: number }>; prep: number | null
+  instructions: string; options: Array<{ id: number; group: string; name: string; delta: number; isDefault: boolean }>; prep: number | null
 }
 
 /** The only place prices are computed. The browser's numbers are never used. */
@@ -76,7 +82,7 @@ export function priceCart(lines: CartLine[]) {
     const chosen = new Set((l.optionIds ?? []).map(Number))
     if (chosen.size !== (l.optionIds ?? []).length) throw new ApiError(400, 'Duplicate options', 'invalid_option')
     const itemGroups = groups.filter((g) => g.item_id === item.id)
-    const selected: Array<{ group: string; name: string; delta: number }> = []
+    const selected: Array<{ id: number; group: string; name: string; delta: number; isDefault: boolean }> = []
 
     for (const g of itemGroups) {
       const gOpts = opts.filter((o) => o.group_id === g.id)
@@ -92,7 +98,7 @@ export function priceCart(lines: CartLine[]) {
       if (picks.length < g.min_select) throw new ApiError(400, `Please choose: ${g.name_en}`, 'missing_option')
       for (const p of picks) {
         chosen.delete(p.id)
-        selected.push({ group: g.name_en, name: p.name_en, delta: p.price_delta })
+        selected.push({ id: p.id, group: g.name_en, name: p.name_en, delta: p.price_delta, isDefault: !!p.is_default })
       }
     }
     if (chosen.size) throw new ApiError(400, 'Invalid option for this item', 'invalid_option') // option from another item
@@ -108,21 +114,39 @@ export function priceCart(lines: CartLine[]) {
 
   const s = getSettings()
   const subtotal = priced.reduce((a, l) => a + l.lineTotal, 0)
-  const tax = Math.round((subtotal * s.taxPercent) / 100)
-  const service = Math.round((subtotal * s.servicePercent) / 100)
+  const t = orderTotals(subtotal, 0, s.taxPercent, s.servicePercent)
   const preps = priced.map((l) => l.prep)
   const est = preps.every((p) => p !== null) ? Math.max(...(preps as number[])) : null
-  return { lines: priced, subtotal, tax, service, total: subtotal + tax + service, estMinutes: est }
+  return {
+    lines: priced, subtotal, tax: t.tax, service: t.service, total: t.total, estMinutes: est,
+    taxRate: s.taxPercent, serviceRate: s.servicePercent,
+  }
 }
 
 // ---------------------------------------------------------------- notifications
 
-export function notify(audience: 'waiter' | 'kitchen' | 'admin', kind: string, title: string, body = '', orderId: number | null = null) {
-  run('INSERT INTO notifications (audience, kind, title, body, order_id) VALUES (?, ?, ?, ?, ?)', audience, kind, title, body, orderId)
-  publish(audience === 'kitchen' ? 'kitchen' : 'staff', 'notification', { audience, kind, title })
-}
+export { notify }
 
 const orderNo = (n: number) => `ORD-${n}`
+
+/** Writes priced lines with their names and prices frozen at order time. Call inside a transaction. */
+export function insertLines(orderId: number, lines: PricedLine[]) {
+  for (const l of lines) {
+    const li = run(
+      `INSERT INTO order_items (order_id, item_id, name, unit_price, options_total, quantity, line_total, instructions, station_id)
+       VALUES (?,?,?,?,?,?,?,?, (SELECT COALESCE(i.station_id, c.station_id) FROM items i JOIN categories c ON c.id = i.category_id WHERE i.id = ?))`,
+      orderId, l.itemId, l.name, l.unitPrice, l.optionsTotal, l.quantity, l.lineTotal, l.instructions, l.itemId,
+    )
+    for (const o of l.options)
+      run('INSERT INTO order_item_options (order_item_id, group_name, option_name, price_delta, is_default, option_id) VALUES (?,?,?,?,?,?)',
+        Number(li.lastInsertRowid), o.group, o.name, o.delta, o.isDefault ? 1 : 0, o.id)
+  }
+}
+
+/** Next order number. Must be called inside the write transaction that inserts the order. */
+export function nextOrderNumber() {
+  return (get<{ n: number | null }>('SELECT MAX(number) n FROM orders')!.n ?? 1000) + 1
+}
 
 // ---------------------------------------------------------------- create
 
@@ -142,7 +166,8 @@ export function createOrder(session: TableSession, input: { lines: CartLine[]; n
     if (open >= 5) throw new ApiError(429, 'You already have several open orders. Please ask your waiter.', 'too_many_orders')
 
     const priced = priceCart(input.lines)
-    const next = (get<{ n: number | null }>('SELECT MAX(number) n FROM orders')!.n ?? 1000) + 1
+    checkCart(priced.lines) // tell the guest now rather than when the waiter sends it to the kitchen
+    const next = nextOrderNumber()
     const needsVerification = s.requireVerification || !session.trusted
     const status: OrderStatus = needsVerification ? 'awaiting_verification' : 'confirmed'
 
@@ -159,23 +184,17 @@ export function createOrder(session: TableSession, input: { lines: CartLine[]; n
     const r = run(
       `INSERT INTO orders (public_id, number, table_id, table_number, session_id, idempotency_key, track_token_hash, status,
          verification_status, verify_code, verify_token_hash, verify_token, verify_expires_at, subtotal, tax, service_charge, total,
-         customer_note, est_ready_minutes, confirmed_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', ?),?,?,?,?,?,?,?)`,
+         customer_note, est_ready_minutes, confirmed_at, tax_rate, service_rate)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now', ?),?,?,?,?,?,?,?,?,?)`,
       publicId, next, session.table_id, session.table_number, session.id, key, sha256(trackToken), status,
       needsVerification ? 'pending' : 'not_required', needsVerification ? code : null, sha256(verifyToken), needsVerification ? verifyToken : null,
       `+${s.verifyTtlMinutes} minutes`, priced.subtotal, priced.tax, priced.service, priced.total,
       String(input.note ?? '').trim().slice(0, 300), priced.estMinutes, needsVerification ? null : new Date().toISOString().slice(0, 19).replace('T', ' '),
+      priced.taxRate, priced.serviceRate,
     )
     const orderId = Number(r.lastInsertRowid)
-    for (const l of priced.lines) {
-      const li = run(
-        'INSERT INTO order_items (order_id, item_id, name, unit_price, options_total, quantity, line_total, instructions) VALUES (?,?,?,?,?,?,?,?)',
-        orderId, l.itemId, l.name, l.unitPrice, l.optionsTotal, l.quantity, l.lineTotal, l.instructions,
-      )
-      for (const o of l.options)
-        run('INSERT INTO order_item_options (order_item_id, group_name, option_name, price_delta) VALUES (?,?,?,?)',
-          Number(li.lastInsertRowid), o.group, o.name, o.delta)
-    }
+    insertLines(orderId, priced.lines)
+    if (!needsVerification) consumeForOrder(orderId, null)
     run('INSERT INTO order_status_history (order_id, from_status, to_status, actor, note) VALUES (?,?,?,?,?)',
       orderId, null, status, `customer@table ${session.table_number}`, needsVerification ? '' : 'Verification not required')
     run('UPDATE tables SET occupied = 1 WHERE id = ?', session.table_id)
@@ -281,7 +300,7 @@ export function staffOrder(id: string) {
 }
 
 export function allowedNext(status: OrderStatus) {
-  return Object.entries(TRANSITIONS[status]).map(([to, roles]) => ({ to: to as OrderStatus, roles }))
+  return Object.entries(TRANSITIONS[status]).map(([to, perm]) => ({ to: to as OrderStatus, perm: perm as Permission }))
 }
 
 export type ListFilter = {
@@ -311,12 +330,6 @@ export function listOrders(f: ListFilter) {
   return { total, orders: rows.map((o) => ({ ...base(o), itemCount: o.item_count })) }
 }
 
-/** Kitchen display: confirmed/preparing/ready with full line detail. */
-export function kitchenOrders() {
-  const rows = all<OrderRow>(`SELECT * FROM orders WHERE status IN ('confirmed','preparing','ready') ORDER BY COALESCE(confirmed_at, created_at), id`)
-  return rows.map((o) => ({ ...base(o), items: items(o.id) }))
-}
-
 // ---------------------------------------------------------------- transitions
 
 export type Actor = { staff: Staff | null; label: string }
@@ -330,13 +343,15 @@ export function transition(
     const s = getSettings()
 
     // waiter shortcut straight to "served" only if the restaurant enabled that workflow
-    let allowedRoles = TRANSITIONS[o.status][to]
-    if (!allowedRoles && s.waiterCanSkipKitchen && to === 'served' && (o.status === 'confirmed' || o.status === 'verified')) allowedRoles = WAITERS
-    if (!allowedRoles) throw new ApiError(409, `An order that is "${o.status.replace('_', ' ')}" cannot become "${to}"`, 'bad_transition')
-    if (actor.staff ? !allowedRoles.includes(actor.staff.role) : !(to === 'cancelled' && o.status === 'awaiting_verification'))
+    let needed = TRANSITIONS[o.status][to]
+    if (!needed && s.waiterCanSkipKitchen && to === 'served' && (o.status === 'confirmed' || o.status === 'verified')) needed = WAITERS
+    if (!needed) throw new ApiError(409, `An order that is "${o.status.replace('_', ' ')}" cannot become "${to}"`, 'bad_transition')
+    if (actor.staff ? !canDoStep(actor.staff.role, needed) : !(to === 'cancelled' && o.status === 'awaiting_verification'))
       throw new ApiError(403, 'You do not have permission for this change', 'forbidden')
     if ((to === 'rejected' || to === 'cancelled') && !(opts.reason ?? '').trim())
       throw new ApiError(400, 'Please give a reason', 'reason_required')
+    if ((to === 'cancelled' || to === 'rejected') && (paidFor([o.id]).get(o.id) ?? 0) > 0)
+      throw new ApiError(409, 'Money was taken for this order. Refund it before cancelling.', 'refund_first')
     if (to === 'confirmed' && s.kitchenNeedsVerified && o.verification_status === 'pending')
       throw new ApiError(409, 'This order has not been verified yet', 'not_verified')
 
@@ -352,7 +367,16 @@ export function transition(
     run(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`, ...args, o.id)
     run('INSERT INTO order_status_history (order_id, from_status, to_status, staff_id, actor, note) VALUES (?,?,?,?,?,?)',
       o.id, o.status, to, actor.staff?.id ?? null, actor.label, (opts.reason ?? opts.note ?? '').slice(0, 300))
-    if (FINAL.includes(to)) closeTableIfIdle(o.table_id, o.id)
+    // Kitchen lines follow order-level moves: "start" with nothing started starts every line; "ready" readies all.
+    if (to === 'preparing' && !get(`SELECT 1 FROM order_items WHERE order_id = ? AND kitchen_status != 'new'`, o.id))
+      run(`UPDATE order_items SET kitchen_status = 'preparing', started_at = datetime('now') WHERE order_id = ?`, o.id)
+    if (to === 'ready')
+      run(`UPDATE order_items SET kitchen_status = 'ready', started_at = COALESCE(started_at, datetime('now')), ready_at = COALESCE(ready_at, datetime('now')) WHERE order_id = ? AND kitchen_status != 'ready'`, o.id)
+    // Stock leaves the shelf when the order goes to the kitchen; cancelling before cooking puts it back.
+    if (['confirmed', 'preparing', 'ready', 'served'].includes(to)) consumeForOrder(o.id, actor.staff?.id ?? null)
+    if ((to === 'cancelled' || to === 'rejected') && o.status === 'confirmed') reverseForOrder(o.id, actor.staff?.id ?? null)
+    if (to === 'cancelled' || to === 'rejected') returnRedeemed(o.id, actor.staff?.id ?? null)
+    if (FINAL.includes(to) && o.table_id) closeTableIfIdle(o.table_id, o.id)
 
     const label = orderNo(o.number)
     if (to === 'confirmed') notify('kitchen', 'confirmed', `New order ${label}`, `Table ${o.table_number}`, o.id)
@@ -458,6 +482,7 @@ export function createServiceRequest(session: TableSession, type: string) {
     if (open) return { id: open.id, duplicate: true }
     const r = run(`INSERT INTO service_requests (table_id, session_id, type, status) VALUES (?,?,?, 'waiting')`, session.table_id, session.id, type)
     notify('waiter', 'request', type === 'bill' ? `Table ${session.table_number} wants the bill` : `Table ${session.table_number} needs: ${type}`, '')
+    if (type === 'bill') notify('cashier', 'bill', `Table ${session.table_number} wants the bill`, '')
     return { id: Number(r.lastInsertRowid), duplicate: false }
   })
   publish('staff', 'request', {})

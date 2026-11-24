@@ -21,7 +21,43 @@ export interface Settings {
   verifyTtlMinutes: number; tableSessionHours: number; requestTypes: string[]; soundAlerts: boolean
   languages: string[]; whatsapp: string
   deliveryEnabled: boolean; notice: string
+  paymentMethods: PaymentMethod[]
+  acceptedCurrencies: string[]
+  /** Base-currency units per 1 unit of each foreign currency, e.g. { USD: 1310 }. Empty = not accepted. */
+  exchangeRates: Record<string, number>
+  exchangeRatesUpdatedAt: string
+  maxCashierDiscountPercent: number
+  receiptHeader: string
+  receiptFooter: string
+  /** An order still cooking after max(its prep estimate, this) minutes is flagged late. */
+  kitchenDelayMinutes: number
+  reservationsEnabled: boolean
+  reservationDurationMinutes: number
+  reservationBufferMinutes: number
+  reservationSlotMinutes: number
+  reservationMaxParty: number
+  reservationLeadMinutes: number
+  reservationMaxDays: number
+  /** When a table is free, web bookings are confirmed at once; otherwise they wait for staff. */
+  reservationAutoConfirm: boolean
+  /** Off: an order that would take an ingredient below zero cannot be sent to the kitchen. */
+  allowNegativeStock: boolean
+  /** Mark dishes sold out when an ingredient runs out, and back when it is restocked. */
+  autoSoldOut: boolean
+  expiryWarningDays: number
+  loyaltyEnabled: boolean
+  /** Spend (base currency, after discounts) per point earned. */
+  loyaltyEarnPer: number
+  /** Base currency a point is worth when redeemed. */
+  loyaltyPointValue: number
+  loyaltyMinRedeem: number
+  /** Points can pay for at most this share of an order. */
+  loyaltyMaxRedeemPercent: number
+  /** Tiers by lifetime spend; the multiplier scales points earned. Sorted by minSpend. */
+  loyaltyTiers: Array<{ name: string; minSpend: number; multiplier: number }>
 }
+
+export type PaymentMethod = { id: string; label: string; kind: 'cash' | 'card' | 'transfer' | 'online' | 'other'; enabled: boolean }
 
 export const DEFAULT_SETTINGS: Settings = {
   restaurantName: 'Smashed Burger',
@@ -56,6 +92,40 @@ export const DEFAULT_SETTINGS: Settings = {
   whatsapp: '9647500000000',
   deliveryEnabled: true,
   notice: '',
+  paymentMethods: [
+    { id: 'cash', label: 'Cash', kind: 'cash', enabled: true },
+    { id: 'card', label: 'Card', kind: 'card', enabled: true },
+    { id: 'transfer', label: 'Bank transfer', kind: 'transfer', enabled: true },
+    { id: 'online', label: 'Online payment', kind: 'online', enabled: false },
+  ],
+  acceptedCurrencies: ['IQD', 'USD'],
+  exchangeRates: {}, // deliberately empty: a rate must be entered before USD is accepted
+  exchangeRatesUpdatedAt: '',
+  maxCashierDiscountPercent: 10,
+  receiptHeader: '',
+  receiptFooter: 'Thank you for eating with us.',
+  kitchenDelayMinutes: 15,
+  reservationsEnabled: true,
+  reservationDurationMinutes: 90,
+  reservationBufferMinutes: 15,
+  reservationSlotMinutes: 30,
+  reservationMaxParty: 12,
+  reservationLeadMinutes: 60,
+  reservationMaxDays: 60,
+  reservationAutoConfirm: true,
+  allowNegativeStock: false,
+  autoSoldOut: true,
+  expiryWarningDays: 3,
+  loyaltyEnabled: true,
+  loyaltyEarnPer: 1000,
+  loyaltyPointValue: 25,
+  loyaltyMinRedeem: 100,
+  loyaltyMaxRedeemPercent: 50,
+  loyaltyTiers: [
+    { name: 'Member', minSpend: 0, multiplier: 1 },
+    { name: 'Silver', minSpend: 500000, multiplier: 1.25 },
+    { name: 'Gold', minSpend: 2000000, multiplier: 1.5 },
+  ],
 }
 
 type SeedItem = { name: string; desc: string; price: number; image: string; badge: string; spicy: boolean }
@@ -125,7 +195,10 @@ function seedMenu(conn: DatabaseSync) {
   if (!fs.existsSync(file)) return
   const data = JSON.parse(fs.readFileSync(file, 'utf8')) as { categories: SeedCat[] }
 
-  const insCat = conn.prepare('INSERT INTO categories (name_en, name_ku, name_ar, icon, sort) VALUES (?,?,?,?,?)')
+  // Default kitchen routing for the seeded menu (stations themselves come from migration 4).
+  const STATION: Record<string, string> = { 'Meat Burgers': 'Grill', 'Chicken Burgers': 'Grill', Sides: 'Fryer', Fries: 'Fryer', Drinks: 'Drinks' }
+  const stationId = (cat: string) => (conn.prepare('SELECT id FROM kitchen_stations WHERE name = ?').get(STATION[cat] ?? '') as { id: number } | undefined)?.id ?? null
+  const insCat = conn.prepare('INSERT INTO categories (name_en, name_ku, name_ar, icon, sort, station_id) VALUES (?,?,?,?,?,?)')
   const insItem = conn.prepare(
     `INSERT INTO items (category_id, name_en, desc_en, price, image, badge, spicy, featured, popular, ingredients, sort)
      VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
@@ -148,7 +221,7 @@ function seedMenu(conn: DatabaseSync) {
 
   data.categories.forEach((cat, ci) => {
     const i18n = CATEGORY_I18N[cat.name] ?? { ku: '', ar: '', icon: '' }
-    const c = insCat.run(cat.name, i18n.ku, i18n.ar, i18n.icon, ci)
+    const c = insCat.run(cat.name, i18n.ku, i18n.ar, i18n.icon, ci, stationId(cat.name))
     const categoryId = Number(c.lastInsertRowid)
 
     cat.items.forEach((item, ii) => {

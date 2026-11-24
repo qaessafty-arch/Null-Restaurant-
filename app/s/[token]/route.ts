@@ -19,5 +19,5 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   if (!link) return NextResponse.redirect(new URL('/?table=invalid', origin))
   run(`UPDATE waiter_links SET used_at = datetime('now') WHERE token_hash = ?`, sha256(token))
   await openTableSession(link.table_id, 'waiter', getSettings().tableSessionHours, link.created_by)
-  return NextResponse.redirect(new URL('/#full-menu', origin))
+  return NextResponse.redirect(new URL('/menu', origin))
 }

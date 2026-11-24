@@ -1,11 +1,12 @@
 import { ApiError, body, json, route, str } from '@/lib/server/http'
-import { audit, requireStaff } from '@/lib/server/auth'
+import { audit, requirePerm } from '@/lib/server/auth'
 import { getSettings, setSetting, type Settings } from '@/lib/server/settings'
+import { isCurrency } from '@/lib/money'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = route(async () => {
-  await requireStaff('admin')
+  await requirePerm('settings.manage')
   return json({ settings: getSettings() })
 })
 
@@ -43,10 +44,64 @@ const VALIDATORS: Record<keyof Settings, (v: unknown) => unknown> = {
   whatsapp: (v) => str(v, 'WhatsApp number', { max: 20 }),
   deliveryEnabled: (v) => bool(v, 'delivery'),
   notice: (v) => str(v, 'notice', { max: 200 }),
+  paymentMethods: (v) => {
+    if (!Array.isArray(v) || v.length < 1 || v.length > 12) throw new ApiError(400, 'Provide 1 to 12 payment methods', 'invalid')
+    const ids = new Set<string>()
+    const out = v.map((m) => {
+      const id = str(m?.id, 'method id', { required: true, max: 24 })
+      if (!/^[a-z0-9_-]+$/.test(id) || ids.has(id)) throw new ApiError(400, 'Payment method ids must be unique, lowercase', 'invalid')
+      ids.add(id)
+      if (!['cash', 'card', 'transfer', 'online', 'other'].includes(m.kind)) throw new ApiError(400, 'Invalid payment method kind', 'invalid')
+      return { id, label: str(m.label, 'method name', { required: true, max: 40 }), kind: m.kind, enabled: bool(m.enabled, 'enabled') }
+    })
+    if (!out.some((m) => m.enabled)) throw new ApiError(400, 'Keep at least one payment method enabled', 'invalid')
+    return out
+  },
+  acceptedCurrencies: (v) => {
+    if (!Array.isArray(v) || !v.length || !v.every(isCurrency)) throw new ApiError(400, 'Invalid currencies', 'invalid')
+    return [...new Set(v)]
+  },
+  exchangeRates: (v) => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ApiError(400, 'Invalid exchange rates', 'invalid')
+    const out: Record<string, number> = {}
+    for (const [c, r] of Object.entries(v)) {
+      if (!isCurrency(c)) throw new ApiError(400, `Unknown currency ${c}`, 'invalid')
+      out[c] = num(r, `${c} rate`, 0.000001, 10_000_000)
+    }
+    return out
+  },
+  exchangeRatesUpdatedAt: () => { throw new ApiError(400, 'The rate update time is recorded automatically', 'invalid') },
+  maxCashierDiscountPercent: (v) => num(v, 'cashier discount limit', 0, 100),
+  receiptHeader: (v) => str(v, 'receipt header', { max: 300 }),
+  receiptFooter: (v) => str(v, 'receipt footer', { max: 300 }),
+  kitchenDelayMinutes: (v) => num(v, 'kitchen delay warning', 3, 180),
+  reservationsEnabled: (v) => bool(v, 'reservations'),
+  reservationDurationMinutes: (v) => num(v, 'reservation length', 15, 480),
+  reservationBufferMinutes: (v) => num(v, 'reservation buffer', 0, 120),
+  reservationSlotMinutes: (v) => { const n = num(v, 'slot interval', 5, 120); if (![5, 10, 15, 20, 30, 45, 60, 90, 120].includes(n)) throw new ApiError(400, 'Slot interval must be 5, 10, 15, 20, 30, 45, 60, 90 or 120 minutes', 'invalid'); return n },
+  reservationMaxParty: (v) => num(v, 'largest party', 1, 100),
+  reservationLeadMinutes: (v) => num(v, 'minimum notice', 0, 7 * 24 * 60),
+  reservationMaxDays: (v) => num(v, 'how far ahead', 1, 365),
+  reservationAutoConfirm: (v) => bool(v, 'auto-confirm'),
+  allowNegativeStock: (v) => bool(v, 'negative stock'),
+  autoSoldOut: (v) => bool(v, 'automatic sold out'),
+  expiryWarningDays: (v) => num(v, 'expiry warning', 0, 60),
+  loyaltyEnabled: (v) => bool(v, 'loyalty'),
+  loyaltyEarnPer: (v) => num(v, 'spend per point', 1, 10_000_000),
+  loyaltyPointValue: (v) => num(v, 'point value', 0, 1_000_000),
+  loyaltyMinRedeem: (v) => num(v, 'minimum points to redeem', 1, 1_000_000),
+  loyaltyMaxRedeemPercent: (v) => num(v, 'share of a bill points can pay', 1, 100),
+  loyaltyTiers: (v) => {
+    if (!Array.isArray(v) || !v.length || v.length > 6) throw new ApiError(400, 'Provide 1 to 6 tiers', 'invalid')
+    const tiers = v.map((t) => ({ name: str(t?.name, 'tier name', { required: true, max: 30 }), minSpend: num(t?.minSpend, 'tier spend', 0, 1e12), multiplier: num(t?.multiplier, 'tier multiplier', 0.1, 10) }))
+      .sort((a, b) => a.minSpend - b.minSpend)
+    if (tiers[0].minSpend !== 0) throw new ApiError(400, 'The first tier must start at 0', 'invalid')
+    return tiers
+  },
 }
 
 export const PUT = route(async (req) => {
-  const staff = await requireStaff('admin')
+  const staff = await requirePerm('settings.manage')
   const b = await body(req)
   const changed: string[] = []
   const validated: Array<[keyof Settings, unknown]> = []
@@ -56,6 +111,8 @@ export const PUT = route(async (req) => {
     validated.push([k as keyof Settings, fn(v)])
   }
   for (const [k, v] of validated) { setSetting(k, v); changed.push(k) }
-  audit(staff, staff.name, 'settings.update', changed.join(','))
+  if (validated.some(([k]) => k === 'exchangeRates')) setSetting('exchangeRatesUpdatedAt', new Date().toISOString())
+  audit(staff, staff.name, 'settings.update', changed.join(','),
+    validated.some(([k]) => k === 'exchangeRates') ? JSON.stringify(getSettings().exchangeRates) : '')
   return json({ settings: getSettings() })
 })

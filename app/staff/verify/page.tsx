@@ -13,5 +13,5 @@ function Inner() {
 
 /** Landing page for the order QR: opens straight to the order preview for a signed-in waiter. */
 export default function VerifyPage() {
-  return <StaffShell roles={['waiter', 'manager', 'admin']} title="Verify order"><Suspense><Inner /></Suspense></StaffShell>
+  return <StaffShell perm="orders.serve" title="Verify order"><Suspense><Inner /></Suspense></StaffShell>
 }

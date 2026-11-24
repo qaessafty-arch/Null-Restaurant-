@@ -7,6 +7,8 @@ import { ArrowLeft, Bell, Check, Clock, Flame, Receipt, X } from 'lucide-react'
 import { OrderingProvider } from '@/components/ordering/provider'
 import { ServiceFab } from '@/components/ordering/service-fab'
 import { fmtNum, money, tr, type Lang } from '@/components/ordering/i18n'
+import { RateOrder } from '@/components/ordering/rate-order'
+import { useLang } from '@/components/ordering/use-lang'
 
 type Item = { name: string; quantity: number; lineTotal: number; instructions: string; options: Array<{ group: string; name: string; delta: number }> }
 type Order = {
@@ -15,7 +17,7 @@ type Order = {
   verifyExpiresAt: string | null; verifyExpired: boolean; estReadyMinutes: number | null; confirmedAt: string | null; cancelReason: string; createdAt: string
 }
 
-const STEPS = ['submitted', 'verification', 'kitchen', 'ready', 'done'] as const
+const STEPS = ['submitted', 'confirmed', 'preparing', 'ready', 'done'] as const
 function stepState(status: string) {
   // returns index of the step currently in progress (STEPS.length = everything done)
   switch (status) {
@@ -30,10 +32,7 @@ function stepState(status: string) {
 
 export default function OrderPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
-  const [lang, setLang] = useState<Lang>('EN')
-  useEffect(() => {
-    try { const l = localStorage.getItem('sb_lang'); if (l === 'EN' || l === 'KU' || l === 'AR') setLang(l) } catch { /* ignore */ }
-  }, [])
+  const [lang] = useLang()
   return (
     <OrderingProvider lang={lang}>
       <Tracker token={token} lang={lang} />
@@ -91,7 +90,7 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
   }
 
   if (missing) return (
-    <main className="ot-page" dir={rtl ? 'rtl' : 'ltr'}><div className="ot-wrap"><div className="ot-card"><h2>404</h2><p>{tr(lang, 'error')}</p><Link className="ot-btn primary" href="/#full-menu">{tr(lang, 'backToMenu')}</Link></div></div></main>
+    <main className="ot-page" dir={rtl ? 'rtl' : 'ltr'}><div className="ot-wrap"><div className="ot-card"><h2>404</h2><p>{tr(lang, 'error')}</p><Link className="ot-btn primary" href="/menu">{tr(lang, 'backToMenu')}</Link></div></div></main>
   )
   if (!order) return <main className="ot-page"><div className="ot-wrap"><p className="ox-empty">{tr(lang, 'loading')}</p></div></main>
 
@@ -100,19 +99,19 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
   const verifyStepFailed = failed
   const at = (to: string) => order.timeline.find((t) => t.to === to)?.at
   const time = (iso?: string | null) => iso ? new Date(iso).toLocaleTimeString(lang === 'EN' ? 'en-GB' : lang === 'AR' ? 'ar-IQ' : 'ckb-IQ', { hour: '2-digit', minute: '2-digit' }) : ''
-  const stepTime = [at('awaiting_verification'), at('verified'), at('confirmed'), at('ready'), at('served')]
+  const stepTime = [order.createdAt, at('verified') ?? at('confirmed'), at('preparing') ?? at('confirmed'), at('ready'), at('served')]
   const secsLeft = order.verifyExpiresAt ? Math.max(0, Math.floor((new Date(order.verifyExpiresAt).getTime() - now) / 1000)) : 0
   const eta = order.estReadyMinutes && order.confirmedAt && ['confirmed', 'preparing'].includes(order.status)
     ? new Date(new Date(order.confirmedAt).getTime() + order.estReadyMinutes * 60_000) : null
   const good = ['ready', 'served', 'completed'].includes(order.status)
 
   return (
-    <main className="ot-page" dir={rtl ? 'rtl' : 'ltr'}>
+    <main className="ot-page" dir={rtl ? 'rtl' : 'ltr'} lang={lang === 'EN' ? 'en' : lang === 'AR' ? 'ar' : 'ckb'}>
       {toast && <div className="ot-toast" role="status">{toast}</div>}
       <header className="ot-top">
-        <div className="container">
-          <Link href="/#full-menu"><ArrowLeft size={16} className={rtl ? 'rotate-180' : ''} /> {tr(lang, 'backToMenu')}</Link>
-          <span className="brand"><span className="brand-mark"><Flame size={17} fill="currentColor" /></span><span>{restaurant.toUpperCase()}</span></span>
+        <div className="ot-top-in">
+          <Link href="/menu"><ArrowLeft size={16} className={rtl ? 'rotate-180' : ''} /> {tr(lang, 'backToMenu')}</Link>
+          <span className="ot-brand"><span className="brand-mark sm" aria-hidden="true"><Flame size={14} fill="currentColor" /></span><span>{restaurant}</span></span>
         </div>
       </header>
 
@@ -121,7 +120,7 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
           <small>{tr(lang, 'orderNumber')}</small>
           <h1>{order.label}</h1>
           <div className="meta">
-            <span>{tr(lang, 'table')} <b>{order.tableNumber}</b></span>
+            {order.tableNumber && <span>{tr(lang, 'table')} <b>{order.tableNumber}</b></span>}
             <span><b>{money(order.total, lang)}</b></span>
             <span>{time(order.createdAt)}</span>
           </div>
@@ -129,8 +128,8 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
             {good ? <Check size={14} /> : failed ? <X size={14} /> : <Clock size={14} />}
             {tr(lang, `s_${order.status}`)}
           </span>
-          {order.cancelReason && failed && <p style={{ margin: '12px 0 0', color: '#c9c3bd', fontSize: 13 }}>{tr(lang, 'reason')}: {order.cancelReason}</p>}
-          {eta && <p style={{ margin: '12px 0 0', color: '#c9c3bd', fontSize: 13 }}>{tr(lang, 'estimated')}: <b style={{ color: '#fff' }}>~{fmtNum(order.estReadyMinutes!, lang)} {tr(lang, 'min')}</b> ({time(eta.toISOString())})</p>}
+          {order.cancelReason && failed && <p className="ot-note">{tr(lang, 'reason')}: {order.cancelReason}</p>}
+          {eta && <p className="ot-note">{tr(lang, 'estimated')}: <b>~{fmtNum(order.estReadyMinutes!, lang)} {tr(lang, 'min')}</b> ({time(eta.toISOString())})</p>}
         </section>
 
         {order.status === 'awaiting_verification' && (
@@ -139,7 +138,7 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
             {order.verifyExpired || !order.verifyCode ? (
               <>
                 <p>{tr(lang, 'codeExpired')}</p>
-                <div className="ot-actions" style={{ justifyContent: 'center', marginTop: 12 }}>
+                <div className="ot-actions center">
                   <button className="ot-btn primary" onClick={() => act('reissue')}>{tr(lang, 'newCode')}</button>
                 </div>
               </>
@@ -162,12 +161,14 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
               return (
                 <li key={s} className={`ot-step ${state}`}>
                   <span className="ot-dot">{state === 'done' ? <Check size={13} strokeWidth={3} /> : state === 'bad' ? <X size={13} strokeWidth={3} /> : state === 'now' ? <i /> : null}</span>
-                  <div><b>{tr(lang, `step_${s === 'submitted' ? 'submitted' : s}`)}</b>{stepTime[i] && state !== 'todo' && <small>{time(stepTime[i])}</small>}</div>
+                  <div><b>{tr(lang, `step_${s}`)}</b>{stepTime[i] && state !== 'todo' && <small>{time(stepTime[i])}</small>}</div>
                 </li>
               )
             })}
           </ol>
         </section>
+
+        {['served', 'completed'].includes(order.status) && <RateOrder token={token} lang={lang} />}
 
         <section className="ot-card">
           <h2>{tr(lang, 'yourOrder')}</h2>
@@ -190,7 +191,7 @@ function Tracker({ token, lang }: { token: string; lang: Lang }) {
 
         <div className="ot-actions">
           {order.status === 'awaiting_verification' && <button className="ot-btn danger" onClick={() => { if (confirm(tr(lang, 'cancelOrder') + '?')) void act('cancel', { reason: 'Cancelled by customer' }) }}>{tr(lang, 'cancelOrder')}</button>}
-          <Link className="ot-btn" href="/#full-menu"><Receipt size={15} /> {tr(lang, 'moreOrder')}</Link>
+          <Link className="ot-btn" href="/menu"><Receipt size={15} /> {tr(lang, 'moreOrder')}</Link>
           {typeof Notification !== 'undefined' && Notification.permission === 'default' && !failed && (
             <button className="ot-btn" onClick={() => void Notification.requestPermission().then(() => setNow(Date.now()))}><Bell size={15} /> {tr(lang, 'notifyMe')}</button>
           )}

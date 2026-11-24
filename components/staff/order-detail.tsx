@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Check, Clock, MessageSquare, X } from 'lucide-react'
 import { api, ApiErr, clock, iqd, STATUS_LABEL, type OrderFull } from './api'
 import { useMe } from './shell'
+import { can, canDoStep, type Permission } from '@/lib/permissions'
 
 const ACTION: Record<string, { label: string; cls?: string; ask?: boolean }> = {
   confirmed: { label: 'Confirm & send to kitchen', cls: 'primary' },
@@ -40,9 +41,9 @@ export function OrderDetail({ id, onClose, onChanged, goVerify }: { id: string; 
   const saveNote = async () => { try { await api('POST', `/api/staff/orders/${id}/note`, { note }); onChanged() } catch (e) { setErr((e as Error).message) } }
   const reissue = async () => { try { const d = await api<{ code: string }>('POST', `/api/staff/orders/${id}/reissue`); setNewCode(d.code) } catch (e) { setErr((e as Error).message) } }
 
-  const allowedMine = (o?.allowed ?? []).filter((a) => a.roles.includes(me.role) && ACTION[a.to] && a.to !== 'verified')
+  const allowedMine = (o?.allowed ?? []).filter((a) => canDoStep(me.role, a.perm) && ACTION[a.to] && a.to !== 'verified')
   const mine = allowedMine.some((a) => a.to === 'rejected') ? allowedMine.filter((a) => a.to !== 'cancelled') : allowedMine
-  const canVerify = o?.status === 'awaiting_verification' && me.role !== 'kitchen'
+  const canVerify = o?.status === 'awaiting_verification' && can(me.role, 'orders.serve')
 
   return (
     <div className="st-drawer-wrap" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -101,7 +102,7 @@ export function OrderDetail({ id, onClose, onChanged, goVerify }: { id: string; 
               </div>
             )}
 
-            {me.role !== 'kitchen' && (
+            {can(me.role, 'orders.serve') && (
               <label className="st-note">Internal note (staff only)
                 <textarea rows={2} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== o.internalNote && saveNote()} />
               </label>

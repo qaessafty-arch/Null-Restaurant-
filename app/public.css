@@ -1,0 +1,43 @@
+/* Public booking pages: the website's editorial style on the shared tokens. */
+.pub { min-height: 100dvh; background: var(--bg); color: var(--text); }
+.pub-top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; padding: 0 max(16px, calc((100% - 760px) / 2)); background: var(--chrome); border-bottom: 1px solid var(--border); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); }
+.pub-top .ui-seg button { min-height: 28px; padding: 0 10px; }
+.pub-main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: var(--s-7) 0 var(--s-8); }
+.pub-eyebrow { margin: 0 0 6px; color: var(--brand); font-size: 17px; font-weight: 600; }
+.pub-title { margin: 0 0 var(--s-5); color: var(--text); font: 700 clamp(36px, 7vw, 56px)/1.05 var(--font-display); letter-spacing: -.03em; }
+.pub-back { color: var(--accent); text-decoration: none; } .pub-back:hover { text-decoration: underline; }
+.pub-card { display: grid; gap: var(--s-5); padding: clamp(18px, 4vw, 32px); border-radius: var(--r-xl); background: var(--surface); box-shadow: var(--shadow-2); }
+.pub-card .pub-title { font-size: clamp(30px, 6vw, 44px); margin: 0; }
+.pub-step { margin: 0; padding: 0; border: 0; display: grid; gap: var(--s-3); }
+.pub-step legend { margin-bottom: var(--s-3); font: 600 19px var(--font-display); letter-spacing: -.02em; }
+.pub-party { display: flex; align-items: center; gap: var(--s-3); }
+.pub-party output { min-width: 48px; text-align: center; font-size: 40px; line-height: 1; }
+.pub-party .ui-icon-btn { width: 48px; height: 48px; border-radius: 50%; }
+.pub-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.pub-chips button, .pub-slots button { min-height: 44px; padding: 0 var(--s-4); border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: 500 15px var(--font-ui); }
+.pub-chips button[aria-pressed="true"], .pub-slots button[aria-checked="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--on-inverse); }
+.pub-chips button:focus-visible, .pub-slots button:focus-visible { outline: none; box-shadow: var(--focus); }
+.pub-other { display: inline-flex; align-items: center; gap: var(--s-2); color: var(--text-2); font-size: 13px; }
+.pub-other input { min-height: 44px; padding: 0 var(--s-3); border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); font: inherit; color: var(--text); }
+.pub-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--s-2); }
+.pub-slots button { border-radius: var(--r-md); font-variant-numeric: tabular-nums; }
+.pub-slots button:disabled { opacity: .35; text-decoration: line-through; cursor: not-allowed; }
+.pub-slots.skeleton span { height: 44px; border-radius: var(--r-md); background: var(--surface-2); animation: pub-shimmer 1.2s ease-in-out infinite; }
+@keyframes pub-shimmer { 50% { opacity: .5; } }
+.pub-details { grid-template-columns: 1fr 1fr; }
+.pub-details legend { grid-column: 1 / -1; }
+.pub-details .wide { grid-column: 1 / -1; }
+.pub-submit { justify-self: stretch; }
+.pub-submit:disabled { opacity: .55; transform: none; cursor: not-allowed; }
+.pub-done { justify-items: center; text-align: center; }
+.pub-done-icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--success-soft); color: var(--success); }
+.pub-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-3); width: 100%; margin: 0; }
+.pub-summary div { padding: var(--s-3); border-radius: var(--r-md); background: var(--surface-2); text-align: start; }
+.pub-summary dt { color: var(--text-2); font-size: 12px; }
+.pub-summary dd { margin: 2px 0 0; font-weight: 600; }
+.pub-summary dd.ui-num { font: 600 24px var(--font-mono); letter-spacing: 3px; }
+.pub-link { display: flex; align-items: center; gap: var(--s-2); width: 100%; padding: var(--s-2) var(--s-2) var(--s-2) var(--s-3); border: 1px dashed var(--border-strong); border-radius: var(--r-md); }
+.pub-link code { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; text-align: start; }
+.pub-confirm { display: grid; gap: var(--s-2); justify-items: center; }
+@media (max-width: 560px) { .pub-details, .pub-summary { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .pub-slots.skeleton span { animation: none; } }

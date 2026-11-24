@@ -1,9 +1,9 @@
 import { ApiError, body, json, route, str } from '@/lib/server/http'
-import { requireStaff } from '@/lib/server/auth'
+import { requirePerm } from '@/lib/server/auth'
 import { STATUSES, staffOrder, transition, type OrderStatus } from '@/lib/server/orders'
 
 export const POST = route(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const staff = await requireStaff('waiter', 'kitchen', 'manager', 'admin')
+  const staff = await requirePerm('orders.serve', 'kitchen.operate', 'orders.override')
   const { id } = await ctx.params
   const b = await body(req)
   const to = str(b.to, 'to', { required: true, max: 30 }) as OrderStatus

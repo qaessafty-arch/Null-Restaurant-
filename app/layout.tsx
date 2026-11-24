@@ -1,7 +1,15 @@
 import type { Metadata, Viewport } from 'next'
+import { THEME_SCRIPT } from '@/lib/theme'
 import './globals.css'
 import './ordering.css'
 import './staff.css'
+import './tokens.css'
+import './pos.css'
+import './kds.css'
+import './floor.css'
+import './public.css'
+import './inventory.css'
+import './finance.css'
 
 export const metadata: Metadata = {
   title: "Smashed Burger Erbil | Best Smash Burgers in Erbil, Iraq",
@@ -37,8 +45,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: 'light dark',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
+    { media: '(prefers-color-scheme: light)', color: '#f5f5f7' },
+    { media: '(prefers-color-scheme: dark)', color: '#161617' },
   ],
 }
 
@@ -48,7 +56,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="antialiased">
         {children}
       </body>
